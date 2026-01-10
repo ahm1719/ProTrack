@@ -212,7 +212,7 @@ function App() {
                if (t.status === 'Completed') return { ...t, status: 'Done' };
                if (t.status === 'On Hold') return { ...t, status: 'Waiting for others' };
                return t;
-             });
+            });
              setTasks(migratedTasks);
           }
           if (remoteData.logs) setLogs(remoteData.logs);
@@ -271,6 +271,11 @@ function App() {
 
   const updateTaskStatus = (id: string, status: Status) => {
     const updatedTasks = tasks.map(t => t.id === id ? { ...t, status } : t);
+    updateTasks(updatedTasks);
+  };
+
+  const updateTaskFields = (id: string, fields: Partial<Task>) => {
+    const updatedTasks = tasks.map(t => t.id === id ? { ...t, ...fields } : t);
     updateTasks(updatedTasks);
   };
 
@@ -495,7 +500,7 @@ function App() {
                             <p className="text-sm font-medium text-slate-800">{task.description}</p>
                          </div>
                          <button 
-                            onClick={() => { setJournalTaskId(task.id); setCurrentView(ViewMode.JOURNAL); }}
+                            onClick={() => { setJournalTaskId(task.id); setCurrentView(ViewMode.TASKS); }}
                             className="text-slate-300 hover:text-indigo-600 p-2"
                          >
                             <ArrowRight size={18}/>
@@ -521,6 +526,7 @@ function App() {
                         onEdit={(t) => { setEditingTask(t); setIsTaskModalOpen(true); }}
                         onDelete={deleteTask}
                         onAddUpdate={addUpdateToTask}
+                        allowDelete={false}
                       />
                   ))}
                   {tasks.filter(t => t.priority === Priority.HIGH && t.status !== Status.DONE).length === 0 && (
@@ -586,46 +592,60 @@ function App() {
     );
   };
 
-  const renderTasks = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-2xl font-bold text-slate-800">Task Board</h2>
-        <button 
-          onClick={() => { setEditingTask(null); setIsTaskModalOpen(true); }}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-        >
-          <Plus size={18} />
-          New Task
-        </button>
+  const renderTasksAndJournal = () => (
+    <div className="animate-fade-in grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Left Column: Daily Journal */}
+      <div className="lg:col-span-1 lg:sticky lg:top-8 h-fit space-y-4">
+         <DailyJournal 
+            tasks={tasks} 
+            logs={logs} 
+            onAddLog={addDailyLog} 
+            onUpdateTask={updateTaskFields}
+            initialTaskId={journalTaskId} 
+         />
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-        <input 
-          type="text" 
-          placeholder="Search by ID, Source, or Description..." 
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm"
-        />
-      </div>
+      {/* Right Column: Task Board */}
+      <div className="lg:col-span-2 space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h2 className="text-2xl font-bold text-slate-800">Task Board</h2>
+          <button 
+            onClick={() => { setEditingTask(null); setIsTaskModalOpen(true); }}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+          >
+            <Plus size={18} />
+            New Task
+          </button>
+        </div>
 
-      <div className="grid grid-cols-1 gap-4">
-        {filteredTasks.map(task => (
-          <TaskCard 
-            key={task.id} 
-            task={task} 
-            onUpdateStatus={updateTaskStatus}
-            onEdit={(t) => { setEditingTask(t); setIsTaskModalOpen(true); }}
-            onDelete={deleteTask}
-            onAddUpdate={addUpdateToTask}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+          <input 
+            type="text" 
+            placeholder="Search by ID, Source, or Description..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm"
           />
-        ))}
-        {filteredTasks.length === 0 && (
-          <div className="text-center py-12 text-slate-400">
-            No tasks found matching your search.
-          </div>
-        )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-4">
+          {filteredTasks.map(task => (
+            <TaskCard 
+              key={task.id} 
+              task={task} 
+              onUpdateStatus={updateTaskStatus}
+              onEdit={(t) => { setEditingTask(t); setIsTaskModalOpen(true); }}
+              onDelete={deleteTask}
+              onAddUpdate={addUpdateToTask}
+            />
+          ))}
+          {filteredTasks.length === 0 && (
+            <div className="text-center py-12 text-slate-400">
+              No tasks found matching your search.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -712,17 +732,12 @@ function App() {
             <LayoutDashboard size={20} /> Dashboard
           </button>
           <button 
-            onClick={() => { setJournalTaskId(''); setCurrentView(ViewMode.JOURNAL); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === ViewMode.JOURNAL ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-500 hover:bg-slate-50'}`}
-          >
-            <BookOpen size={20} /> Daily Journal
-          </button>
-          <button 
-            onClick={() => setCurrentView(ViewMode.TASKS)}
+            onClick={() => { setJournalTaskId(''); setCurrentView(ViewMode.TASKS); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === ViewMode.TASKS ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-500 hover:bg-slate-50'}`}
           >
-            <ListTodo size={20} /> Task Board
+            <ListTodo size={20} /> Tasks & Journal
           </button>
+          {/* Daily Journal standalone link removed, now combined with Tasks */}
           <button 
             onClick={() => setCurrentView(ViewMode.REPORT)}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === ViewMode.REPORT ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-500 hover:bg-slate-50'}`}
@@ -772,8 +787,7 @@ function App() {
       {isMobileMenuOpen && (
         <div className="fixed inset-0 bg-white z-10 pt-20 px-6 space-y-4 md:hidden animate-in slide-in-from-top-10">
            <button onClick={() => { setCurrentView(ViewMode.DASHBOARD); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Dashboard</button>
-           <button onClick={() => { setJournalTaskId(''); setCurrentView(ViewMode.JOURNAL); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Daily Journal</button>
-           <button onClick={() => { setCurrentView(ViewMode.TASKS); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Tasks</button>
+           <button onClick={() => { setCurrentView(ViewMode.TASKS); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Tasks & Journal</button>
            <button onClick={() => { setCurrentView(ViewMode.REPORT); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">AI Report</button>
            <button onClick={() => { setCurrentView(ViewMode.OBSERVATIONS); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Observations</button>
            <button onClick={() => { setCurrentView(ViewMode.SETTINGS); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Settings & Data</button>
@@ -784,8 +798,8 @@ function App() {
       {/* Main Content Area */}
       <main className="flex-1 md:ml-64 p-4 md:p-8 mt-14 md:mt-0 transition-all max-w-[1600px] mx-auto w-full">
         {currentView === ViewMode.DASHBOARD && renderDashboard()}
-        {currentView === ViewMode.TASKS && renderTasks()}
-        {currentView === ViewMode.JOURNAL && <DailyJournal tasks={tasks} logs={logs} onAddLog={addDailyLog} initialTaskId={journalTaskId} />}
+        {currentView === ViewMode.TASKS && renderTasksAndJournal()}
+        {currentView === ViewMode.JOURNAL && <DailyJournal tasks={tasks} logs={logs} onAddLog={addDailyLog} onUpdateTask={updateTaskFields} initialTaskId={journalTaskId} />}
         {currentView === ViewMode.REPORT && renderReport()}
         {currentView === ViewMode.OBSERVATIONS && <ObservationsLog observations={observations} onAddObservation={addObservation} onEditObservation={editObservation} onDeleteObservation={deleteObservation} />}
         {currentView === ViewMode.SETTINGS && <Settings tasks={tasks} logs={logs} observations={observations} onImportData={handleImportData} onSyncConfigUpdate={handleSyncConfigUpdate} isSyncEnabled={isSyncEnabled} />}

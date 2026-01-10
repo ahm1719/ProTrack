@@ -8,9 +8,10 @@ interface TaskCardProps {
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
   onAddUpdate: (id: string, content: string) => void;
+  allowDelete?: boolean;
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onEdit, onDelete, onAddUpdate }) => {
+const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onEdit, onDelete, onAddUpdate, allowDelete = true }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [newUpdate, setNewUpdate] = useState('');
 
@@ -69,13 +70,15 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onEdit, onDel
             >
               <Edit2 size={16} />
             </button>
-            <button 
-              onClick={() => onDelete(task.id)} 
-              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              title="Delete Task"
-            >
-              <Trash2 size={16} />
-            </button>
+            {allowDelete && (
+              <button 
+                onClick={() => onDelete(task.id)} 
+                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                title="Delete Task"
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
           </div>
         </div>
 
