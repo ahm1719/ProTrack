@@ -139,8 +139,17 @@ function App() {
   // Sync State
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
 
+  // Time State
+  const [now, setNow] = useState(new Date());
+
   // --- SYNC EFFECTS ---
   
+  // Clock Timer
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   // 1. Initialize Firebase on Boot
   useEffect(() => {
     const savedConfig = localStorage.getItem('protrack_firebase_config');
@@ -508,6 +517,23 @@ function App() {
 
     return (
       <div className="space-y-6 animate-fade-in pb-12">
+        {/* Date/Time Header */}
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center">
+           <div>
+              <h2 className="text-2xl md:text-3xl font-bold text-slate-800">
+                {now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              </h2>
+              <div className="flex items-center gap-2 mt-2 text-slate-500">
+                 <Clock size={20} className="text-indigo-600" />
+                 <span className="text-xl font-medium font-mono">{now.toLocaleTimeString()}</span>
+              </div>
+           </div>
+           <div className="mt-4 md:mt-0 px-4 py-2 bg-slate-50 rounded-lg border border-slate-100 hidden md:block">
+              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Current Week</div>
+              <div className="text-xl font-bold text-slate-700">{getCurrentCW()}</div>
+           </div>
+        </div>
+
         {/* Top Level Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg shadow-indigo-200">
