@@ -22,7 +22,12 @@ import {
   HelpCircle,
   StickyNote,
   Settings as SettingsIcon,
-  ExternalLink
+  ExternalLink,
+  CalendarDays,
+  Activity,
+  BarChart3,
+  AlertTriangle,
+  ArrowRight
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -356,60 +361,215 @@ function App() {
   )).sort();
 
   // --- RENDER HELPERS ---
-  const renderDashboard = () => (
-    <div className="space-y-6 animate-fade-in">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-200">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-semibold text-indigo-100">Total Tasks</h3>
-            <ListTodo className="opacity-50" />
-          </div>
-          <p className="text-4xl font-bold">{tasks.length}</p>
-          <p className="text-xs text-indigo-200 mt-2">Active Tracker Database</p>
-        </div>
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-semibold text-slate-500">In Progress</h3>
-            <Clock className="text-blue-500" />
-          </div>
-          <p className="text-4xl font-bold text-slate-800">{tasks.filter(t => t.status === Status.IN_PROGRESS).length}</p>
-          <p className="text-xs text-slate-400 mt-2">Currently being worked on</p>
-        </div>
-        <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-semibold text-slate-500">Completed</h3>
-            <CheckCircle2 className="text-emerald-500" />
-          </div>
-          <p className="text-4xl font-bold text-slate-800">{tasks.filter(t => t.status === Status.COMPLETED).length}</p>
-          <p className="text-xs text-slate-400 mt-2">Finished successfully</p>
-        </div>
-      </div>
+  const renderDashboard = () => {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    
+    // Start of week (Monday)
+    const startOfWeek = new Date(today);
+    const day = startOfWeek.getDay();
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
+    startOfWeek.setDate(diff);
+    startOfWeek.setHours(0,0,0,0);
+    const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
 
-      <div>
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-slate-800">Priority Items</h2>
-          <button onClick={() => setCurrentView(ViewMode.TASKS)} className="text-sm text-indigo-600 font-medium hover:underline">View All</button>
+    // Calc Stats
+    const overdueTasks = tasks.filter(t => t.status !== Status.COMPLETED && t.dueDate < todayStr);
+    const dueTodayTasks = tasks.filter(t => t.status !== Status.COMPLETED && t.dueDate === todayStr);
+    
+    // Weekly Stats
+    const logsThisWeek = logs.filter(l => l.date >= startOfWeekStr);
+    const activeTasksThisWeek = new Set(logsThisWeek.map(l => l.taskId)).size;
+    const completedTasks = tasks.filter(t => t.status === Status.COMPLETED).length;
+    const activeTasksTotal = tasks.filter(t => t.status === Status.IN_PROGRESS).length;
+
+    // Observation Stats
+    const obsNew = observations.filter(o => o.status === ObservationStatus.NEW).length;
+    const obsWip = observations.filter(o => o.status === ObservationStatus.REVIEWING).length;
+    const obsResolved = observations.filter(o => o.status === ObservationStatus.RESOLVED).length;
+    const totalObs = observations.length;
+
+    return (
+      <div className="space-y-6 animate-fade-in pb-12">
+        {/* Top Level Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-200">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold text-indigo-100">Total Active</h3>
+              <ListTodo className="opacity-50" />
+            </div>
+            <p className="text-4xl font-bold">{tasks.length}</p>
+            <p className="text-xs text-indigo-200 mt-2">{activeTasksTotal} In Progress / {completedTasks} Done</p>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm relative overflow-hidden group hover:border-red-300 transition-colors">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold text-slate-500">Overdue Tasks</h3>
+              <AlertTriangle className={`text-red-500 ${overdueTasks.length > 0 ? 'animate-pulse' : ''}`} />
+            </div>
+            <p className={`text-4xl font-bold ${overdueTasks.length > 0 ? 'text-red-600' : 'text-slate-800'}`}>
+              {overdueTasks.length}
+            </p>
+            <p className="text-xs text-slate-400 mt-2">Immediate attention required</p>
+            {overdueTasks.length > 0 && <div className="absolute bottom-0 left-0 w-full h-1 bg-red-500"/>}
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:border-amber-300 transition-colors">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold text-slate-500">Due Today</h3>
+              <CalendarDays className="text-amber-500" />
+            </div>
+            <p className="text-4xl font-bold text-slate-800">{dueTodayTasks.length}</p>
+            <p className="text-xs text-slate-400 mt-2">Deadlines expiring today</p>
+          </div>
+
+           <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-semibold text-slate-500">Weekly Pulse</h3>
+              <Activity className="text-emerald-500" />
+            </div>
+            <div className="flex items-end gap-2">
+              <p className="text-4xl font-bold text-slate-800">{logsThisWeek.length}</p>
+              <span className="text-sm text-slate-500 mb-1.5">entries</span>
+            </div>
+            <p className="text-xs text-slate-400 mt-2">Across {activeTasksThisWeek} tasks this week</p>
+          </div>
         </div>
-        <div className="grid grid-cols-1 gap-4">
-           {tasks.filter(t => t.priority === Priority.HIGH && t.status !== Status.COMPLETED).slice(0, 3).map(task => (
-             <TaskCard 
-                key={task.id} 
-                task={task} 
-                onUpdateStatus={updateTaskStatus} 
-                onEdit={(t) => { setEditingTask(t); setIsTaskModalOpen(true); }}
-                onDelete={deleteTask}
-                onAddUpdate={addUpdateToTask}
-              />
-           ))}
-           {tasks.filter(t => t.priority === Priority.HIGH && t.status !== Status.COMPLETED).length === 0 && (
-             <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
-               No high priority tasks pending. Good job!
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Column: Priority & Deadlines */}
+          <div className="lg:col-span-2 space-y-6">
+             {/* Urgent Tasks Section */}
+             {(overdueTasks.length > 0 || dueTodayTasks.length > 0) && (
+               <div className="bg-white rounded-2xl border border-red-100 shadow-sm overflow-hidden">
+                 <div className="bg-red-50 px-6 py-4 border-b border-red-100 flex items-center gap-2">
+                    <AlertTriangle size={18} className="text-red-600"/>
+                    <h3 className="font-bold text-red-900">Attention Needed</h3>
+                 </div>
+                 <div className="divide-y divide-red-50">
+                    {[...overdueTasks, ...dueTodayTasks].slice(0, 5).map(task => (
+                      <div key={task.id} className="p-4 hover:bg-red-50/50 transition-colors flex items-center justify-between group">
+                         <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded text-white ${task.dueDate < todayStr ? 'bg-red-500' : 'bg-amber-500'}`}>
+                                 {task.dueDate < todayStr ? 'OVERDUE' : 'DUE TODAY'}
+                               </span>
+                               <span className="text-xs font-mono font-medium text-slate-500">{task.displayId}</span>
+                            </div>
+                            <p className="text-sm font-medium text-slate-800">{task.description}</p>
+                         </div>
+                         <button 
+                            onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }}
+                            className="text-slate-300 hover:text-indigo-600 p-2"
+                         >
+                            <ArrowRight size={18}/>
+                         </button>
+                      </div>
+                    ))}
+                 </div>
+               </div>
+             )}
+
+             {/* Priority Items */}
+             <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold text-slate-800">High Priority</h2>
+                  <button onClick={() => setCurrentView(ViewMode.TASKS)} className="text-sm text-indigo-600 font-medium hover:underline">View All</button>
+                </div>
+                <div className="space-y-4">
+                  {tasks.filter(t => t.priority === Priority.HIGH && t.status !== Status.COMPLETED).slice(0, 3).map(task => (
+                    <TaskCard 
+                        key={task.id} 
+                        task={task} 
+                        onUpdateStatus={updateTaskStatus} 
+                        onEdit={(t) => { setEditingTask(t); setIsTaskModalOpen(true); }}
+                        onDelete={deleteTask}
+                        onAddUpdate={addUpdateToTask}
+                      />
+                  ))}
+                  {tasks.filter(t => t.priority === Priority.HIGH && t.status !== Status.COMPLETED).length === 0 && (
+                    <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
+                      No high priority tasks pending.
+                    </div>
+                  )}
+                </div>
              </div>
-           )}
+          </div>
+
+          {/* Right Column: Summaries */}
+          <div className="space-y-6">
+            {/* Observations Status Card */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+               <div className="flex items-center justify-between mb-6">
+                  <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                    <StickyNote size={18} className="text-indigo-500"/>
+                    Observations
+                  </h3>
+                  <button onClick={() => setCurrentView(ViewMode.OBSERVATIONS)} className="text-xs font-medium text-indigo-600 hover:underline">
+                    Manage Board
+                  </button>
+               </div>
+               
+               <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-blue-50 border border-blue-100">
+                     <span className="text-sm font-medium text-blue-700">New</span>
+                     <span className="text-lg font-bold text-blue-800">{obsNew}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-amber-50 border border-amber-100">
+                     <span className="text-sm font-medium text-amber-700">WIP</span>
+                     <span className="text-lg font-bold text-amber-800">{obsWip}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+                     <span className="text-sm font-medium text-emerald-700">Resolved</span>
+                     <span className="text-lg font-bold text-emerald-800">{obsResolved}</span>
+                  </div>
+               </div>
+               
+               <div className="mt-6 pt-4 border-t border-slate-100">
+                 <div className="flex justify-between text-xs text-slate-500">
+                    <span>Total Observations</span>
+                    <span className="font-mono">{totalObs}</span>
+                 </div>
+                 {/* Simple Progress Bar */}
+                 <div className="w-full h-2 bg-slate-100 rounded-full mt-2 flex overflow-hidden">
+                    <div style={{ width: `${totalObs ? (obsResolved / totalObs) * 100 : 0}%`}} className="bg-emerald-500 h-full" />
+                    <div style={{ width: `${totalObs ? (obsWip / totalObs) * 100 : 0}%`}} className="bg-amber-400 h-full" />
+                    <div style={{ width: `${totalObs ? (obsNew / totalObs) * 100 : 0}%`}} className="bg-blue-400 h-full" />
+                 </div>
+               </div>
+            </div>
+
+            {/* Weekly Detailed Stats */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+               <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                    <BarChart3 size={18} className="text-indigo-500"/>
+                    Week Statistics
+                  </h3>
+                  <span className="text-xs text-slate-400">Current CW</span>
+               </div>
+               <div className="space-y-3">
+                  <div className="flex justify-between items-center text-sm">
+                     <span className="text-slate-600">Daily Logs Logged</span>
+                     <span className="font-bold text-slate-800">{logsThisWeek.length}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                     <span className="text-slate-600">Unique Tasks Touched</span>
+                     <span className="font-bold text-slate-800">{activeTasksThisWeek}</span>
+                  </div>
+                   <div className="flex justify-between items-center text-sm">
+                     <span className="text-slate-600">Completion Rate</span>
+                     <span className="font-bold text-slate-800">
+                       {tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0}%
+                     </span>
+                  </div>
+               </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderTasks = () => (
     <div className="space-y-6 animate-fade-in">
