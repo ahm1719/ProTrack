@@ -419,6 +419,7 @@ function App() {
     const obsWip = observations.filter(o => o.status === ObservationStatus.REVIEWING).length;
     const obsResolved = observations.filter(o => o.status === ObservationStatus.RESOLVED).length;
     const totalObs = observations.length;
+    const activeObsTotal = obsNew + obsWip + obsResolved;
 
     return (
       <div className="space-y-6 animate-fade-in pb-12">
@@ -565,11 +566,17 @@ function App() {
                     <span>Total Observations</span>
                     <span className="font-mono">{totalObs}</span>
                  </div>
-                 {/* Simple Progress Bar */}
+                 {/* Fixed Progress Bar using Flexbox for composition */}
                  <div className="w-full h-2 bg-slate-100 rounded-full mt-2 flex overflow-hidden">
-                    <div style={{ width: `${totalObs ? (obsResolved / totalObs) * 100 : 0}%`}} className="bg-emerald-500 h-full" />
-                    <div style={{ width: `${totalObs ? (obsWip / totalObs) * 100 : 0}%`}} className="bg-amber-400 h-full" />
-                    <div style={{ width: `${totalObs ? (obsNew / totalObs) * 100 : 0}%`}} className="bg-blue-400 h-full" />
+                    {activeObsTotal > 0 ? (
+                      <>
+                        {obsResolved > 0 && <div style={{ flex: obsResolved }} className="bg-emerald-500 h-full" />}
+                        {obsWip > 0 && <div style={{ flex: obsWip }} className="bg-amber-400 h-full" />}
+                        {obsNew > 0 && <div style={{ flex: obsNew }} className="bg-blue-400 h-full" />}
+                      </>
+                    ) : (
+                       <div className="w-full h-full bg-slate-200" />
+                    )}
                  </div>
                </div>
             </div>
