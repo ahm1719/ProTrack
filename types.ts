@@ -49,6 +49,7 @@ export interface Observation {
   timestamp: string;
   content: string;
   status: ObservationStatus;
+  images?: string[];
 }
 
 export interface FirebaseConfig {
