@@ -115,6 +115,7 @@ function App() {
   const [currentView, setCurrentView] = useState<ViewMode>(ViewMode.DASHBOARD);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [journalTaskId, setJournalTaskId] = useState<string>(''); // For deep linking to journal
   
   // Modal State
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -493,7 +494,7 @@ function App() {
                             <p className="text-sm font-medium text-slate-800">{task.description}</p>
                          </div>
                          <button 
-                            onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }}
+                            onClick={() => { setJournalTaskId(task.id); setCurrentView(ViewMode.JOURNAL); }}
                             className="text-slate-300 hover:text-indigo-600 p-2"
                          >
                             <ArrowRight size={18}/>
@@ -704,7 +705,7 @@ function App() {
             <LayoutDashboard size={20} /> Dashboard
           </button>
           <button 
-            onClick={() => setCurrentView(ViewMode.JOURNAL)}
+            onClick={() => { setJournalTaskId(''); setCurrentView(ViewMode.JOURNAL); }}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === ViewMode.JOURNAL ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-500 hover:bg-slate-50'}`}
           >
             <BookOpen size={20} /> Daily Journal
@@ -764,7 +765,7 @@ function App() {
       {isMobileMenuOpen && (
         <div className="fixed inset-0 bg-white z-10 pt-20 px-6 space-y-4 md:hidden animate-in slide-in-from-top-10">
            <button onClick={() => { setCurrentView(ViewMode.DASHBOARD); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Dashboard</button>
-           <button onClick={() => { setCurrentView(ViewMode.JOURNAL); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Daily Journal</button>
+           <button onClick={() => { setJournalTaskId(''); setCurrentView(ViewMode.JOURNAL); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Daily Journal</button>
            <button onClick={() => { setCurrentView(ViewMode.TASKS); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Tasks</button>
            <button onClick={() => { setCurrentView(ViewMode.REPORT); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">AI Report</button>
            <button onClick={() => { setCurrentView(ViewMode.OBSERVATIONS); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Observations</button>
@@ -777,7 +778,7 @@ function App() {
       <main className="flex-1 md:ml-64 p-4 md:p-8 mt-14 md:mt-0 transition-all max-w-[1600px] mx-auto w-full">
         {currentView === ViewMode.DASHBOARD && renderDashboard()}
         {currentView === ViewMode.TASKS && renderTasks()}
-        {currentView === ViewMode.JOURNAL && <DailyJournal tasks={tasks} logs={logs} onAddLog={addDailyLog} />}
+        {currentView === ViewMode.JOURNAL && <DailyJournal tasks={tasks} logs={logs} onAddLog={addDailyLog} initialTaskId={journalTaskId} />}
         {currentView === ViewMode.REPORT && renderReport()}
         {currentView === ViewMode.OBSERVATIONS && <ObservationsLog observations={observations} onAddObservation={addObservation} onEditObservation={editObservation} onDeleteObservation={deleteObservation} />}
         {currentView === ViewMode.SETTINGS && <Settings tasks={tasks} logs={logs} observations={observations} onImportData={handleImportData} onSyncConfigUpdate={handleSyncConfigUpdate} isSyncEnabled={isSyncEnabled} />}

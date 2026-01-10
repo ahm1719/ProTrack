@@ -6,13 +6,14 @@ interface DailyJournalProps {
   tasks: Task[];
   logs: DailyLog[];
   onAddLog: (log: Omit<DailyLog, 'id'>) => void;
+  initialTaskId?: string;
 }
 
-const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog }) => {
+const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, initialTaskId }) => {
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   
   // State for new entry form
-  const [selectedTaskId, setSelectedTaskId] = useState<string>('');
+  const [selectedTaskId, setSelectedTaskId] = useState<string>(initialTaskId || '');
   const [content, setContent] = useState('');
 
   const handleAddEntry = (e: React.FormEvent) => {
