@@ -42,7 +42,8 @@ export const generateWeeklySummary = async (tasks: Task[], logs: DailyLog[]): Pr
     const startOfWeek = getStartOfWeek(today);
     const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
 
-    const activeTasks = tasks.filter(t => t.status !== 'Completed' || t.updates.some(u => u.timestamp >= startOfWeekStr));
+    // Filter active tasks: either NOT Done OR updated recently
+    const activeTasks = tasks.filter(t => t.status !== 'Done' || t.updates.some(u => u.timestamp >= startOfWeekStr));
     
     // Format data for the prompt
     const tasksContext = activeTasks.map(t => `

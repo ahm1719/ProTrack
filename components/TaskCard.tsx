@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Task, Status, Priority } from '../types';
-import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2 } from 'lucide-react';
+import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass } from 'lucide-react';
 
 interface TaskCardProps {
   task: Task;
@@ -24,10 +24,11 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onEdit, onDel
 
   const getStatusColor = (s: Status) => {
     switch (s) {
-      case Status.COMPLETED: return 'bg-emerald-500 text-white';
+      case Status.DONE: return 'bg-emerald-500 text-white';
       case Status.IN_PROGRESS: return 'bg-blue-500 text-white';
       case Status.NOT_STARTED: return 'bg-slate-200 text-slate-600';
-      case Status.ON_HOLD: return 'bg-orange-400 text-white';
+      case Status.WAITING: return 'bg-amber-400 text-white';
+      default: return 'bg-slate-200 text-slate-600';
     }
   };
 
@@ -40,7 +41,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onEdit, onDel
   };
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-300 hover:shadow-md ${task.status === Status.COMPLETED ? 'opacity-75' : ''}`}>
+    <div className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-300 hover:shadow-md ${task.status === Status.DONE ? 'opacity-75' : ''}`}>
       <div className="p-5">
         <div className="flex justify-between items-start mb-3">
           <div className="flex flex-wrap gap-2 items-center">
@@ -89,7 +90,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onEdit, onDel
               <span>{task.dueDate}</span>
             </div>
             <div className="flex items-center gap-1">
-               {task.status === Status.COMPLETED ? <CheckCircle2 size={14} className="text-emerald-500"/> : <Clock size={14} />}
+               {task.status === Status.DONE ? <CheckCircle2 size={14} className="text-emerald-500"/> : task.status === Status.WAITING ? <Hourglass size={14} className="text-amber-500"/> : <Clock size={14} />}
                <span>{task.updates.length} updates</span>
             </div>
           </div>

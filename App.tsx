@@ -84,7 +84,16 @@ function App() {
   // --- STATE ---
   const [tasks, setTasks] = useState<Task[]>(() => {
     const saved = localStorage.getItem('protrack_tasks');
-    return saved ? JSON.parse(saved) : INITIAL_TASKS;
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Data Migration for Status changes
+      return parsed.map((t: any) => {
+        if (t.status === 'Completed') return { ...t, status: 'Done' }; // Legacy migration
+        if (t.status === 'On Hold') return { ...t, status: 'Waiting for others' }; // Legacy migration
+        return t;
+      });
+    }
+    return INITIAL_TASKS;
   });
 
   const [logs, setLogs] = useState<DailyLog[]>(() => {
@@ -132,7 +141,15 @@ function App() {
         
         // Start Listening
         subscribeToData((remoteData) => {
-          if (remoteData.tasks) setTasks(remoteData.tasks);
+          if (remoteData.tasks) {
+            // Apply migration on incoming remote data as well
+            const migratedTasks = remoteData.tasks.map((t: any) => {
+               if (t.status === 'Completed') return { ...t, status: 'Done' };
+               if (t.status === 'On Hold') return { ...t, status: 'Waiting for others' };
+               return t;
+            });
+            setTasks(migratedTasks);
+          }
           if (remoteData.logs) setLogs(remoteData.logs);
           if (remoteData.observations) {
             // Apply migration on incoming remote data as well if needed
@@ -189,7 +206,14 @@ function App() {
       // Immediately try to sync current local data to cloud to 'init' the cloud if empty,
       // or start the listener.
       subscribeToData((remoteData) => {
-          if (remoteData.tasks) setTasks(remoteData.tasks);
+          if (remoteData.tasks) {
+             const migratedTasks = remoteData.tasks.map((t: any) => {
+               if (t.status === 'Completed') return { ...t, status: 'Done' };
+               if (t.status === 'On Hold') return { ...t, status: 'Waiting for others' };
+               return t;
+             });
+             setTasks(migratedTasks);
+          }
           if (remoteData.logs) setLogs(remoteData.logs);
            if (remoteData.observations) {
             const migratedObs = remoteData.observations.map((o: any) => ({
@@ -356,7 +380,7 @@ function App() {
   // Get active Project IDs for dropdown
   const activeProjectIds = Array.from(new Set(
     tasks
-      .filter(t => t.status !== Status.COMPLETED && t.projectId)
+      .filter(t => t.status !== Status.DONE && t.projectId)
       .map(t => t.projectId)
   )).sort();
 
@@ -374,14 +398,14 @@ function App() {
     const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
 
     // Calc Stats
-    const overdueTasks = tasks.filter(t => t.status !== Status.COMPLETED && t.dueDate < todayStr);
-    const dueTodayTasks = tasks.filter(t => t.status !== Status.COMPLETED && t.dueDate === todayStr);
+    const overdueTasks = tasks.filter(t => t.status !== Status.DONE && t.dueDate < todayStr);
+    const dueTodayTasks = tasks.filter(t => t.status !== Status.DONE && t.dueDate === todayStr);
     
     // Weekly Stats
     const logsThisWeek = logs.filter(l => l.date >= startOfWeekStr);
     const activeTasksThisWeek = new Set(logsThisWeek.map(l => l.taskId)).size;
-    const completedTasks = tasks.filter(t => t.status === Status.COMPLETED).length;
-    const activeTasksTotal = tasks.filter(t => t.status === Status.IN_PROGRESS).length;
+    const completedTasks = tasks.filter(t => t.status === Status.DONE).length;
+    const activeTasksTotal = tasks.filter(t => t.status === Status.IN_PROGRESS || t.status === Status.WAITING).length;
 
     // Observation Stats
     const obsNew = observations.filter(o => o.status === ObservationStatus.NEW).length;
@@ -399,7 +423,7 @@ function App() {
               <ListTodo className="opacity-50" />
             </div>
             <p className="text-4xl font-bold">{tasks.length}</p>
-            <p className="text-xs text-indigo-200 mt-2">{activeTasksTotal} In Progress / {completedTasks} Done</p>
+            <p className="text-xs text-indigo-200 mt-2">{activeTasksTotal} Active / {completedTasks} Done</p>
           </div>
 
           <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm relative overflow-hidden group hover:border-red-300 transition-colors">
@@ -477,7 +501,7 @@ function App() {
                   <button onClick={() => setCurrentView(ViewMode.TASKS)} className="text-sm text-indigo-600 font-medium hover:underline">View All</button>
                 </div>
                 <div className="space-y-4">
-                  {tasks.filter(t => t.priority === Priority.HIGH && t.status !== Status.COMPLETED).slice(0, 3).map(task => (
+                  {tasks.filter(t => t.priority === Priority.HIGH && t.status !== Status.DONE).slice(0, 3).map(task => (
                     <TaskCard 
                         key={task.id} 
                         task={task} 
@@ -487,7 +511,7 @@ function App() {
                         onAddUpdate={addUpdateToTask}
                       />
                   ))}
-                  {tasks.filter(t => t.priority === Priority.HIGH && t.status !== Status.COMPLETED).length === 0 && (
+                  {tasks.filter(t => t.priority === Priority.HIGH && t.status !== Status.DONE).length === 0 && (
                     <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
                       No high priority tasks pending.
                     </div>

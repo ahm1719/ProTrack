@@ -7,8 +7,8 @@ export enum Priority {
 export enum Status {
   NOT_STARTED = 'Not Started',
   IN_PROGRESS = 'In Progress',
-  COMPLETED = 'Completed',
-  ON_HOLD = 'On Hold'
+  WAITING = 'Waiting for others',
+  DONE = 'Done'
 }
 
 export enum ObservationStatus {

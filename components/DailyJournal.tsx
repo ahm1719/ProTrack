@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Task, DailyLog } from '../types';
+import { Task, DailyLog, Status } from '../types';
 import { Calendar as CalendarIcon, Save, Plus } from 'lucide-react';
 
 interface DailyJournalProps {
@@ -33,7 +33,7 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog }) =>
   // Filter logs for selected date
   const daysLogs = logs.filter(l => l.date === selectedDate);
   // Sort incomplete tasks to top for selection
-  const sortedTasks = [...tasks].sort((a, b) => a.status === 'Completed' ? 1 : -1);
+  const sortedTasks = [...tasks].sort((a, b) => a.status === Status.DONE ? 1 : -1);
 
   return (
     <div className="space-y-6">
