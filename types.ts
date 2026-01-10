@@ -11,6 +11,13 @@ export enum Status {
   ON_HOLD = 'On Hold'
 }
 
+export enum ObservationStatus {
+  NEW = 'New',
+  REVIEWING = 'Reviewing',
+  RESOLVED = 'Resolved',
+  ARCHIVED = 'Archived'
+}
+
 export interface TaskUpdate {
   id: string;
   timestamp: string; // ISO String
@@ -41,6 +48,7 @@ export interface Observation {
   id: string;
   timestamp: string;
   content: string;
+  status: ObservationStatus;
 }
 
 export interface FirebaseConfig {

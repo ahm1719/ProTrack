@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Task, DailyLog, ViewMode, Status, Priority, Observation, FirebaseConfig } from './types';
+import { Task, DailyLog, ViewMode, Status, Priority, Observation, ObservationStatus, FirebaseConfig } from './types';
 import TaskCard from './components/TaskCard';
 import DailyJournal from './components/DailyJournal';
 import UserManual from './components/UserManual';
@@ -89,7 +89,13 @@ function App() {
 
   const [observations, setObservations] = useState<Observation[]>(() => {
     const saved = localStorage.getItem('protrack_observations');
-    return saved ? JSON.parse(saved) : INITIAL_OBSERVATIONS;
+    let parsed = saved ? JSON.parse(saved) : INITIAL_OBSERVATIONS;
+    // Migration: Ensure all observations have a status
+    parsed = parsed.map((o: any) => ({
+      ...o,
+      status: o.status || ObservationStatus.NEW
+    }));
+    return parsed;
   });
 
   const [currentView, setCurrentView] = useState<ViewMode>(ViewMode.DASHBOARD);
@@ -123,7 +129,14 @@ function App() {
         subscribeToData((remoteData) => {
           if (remoteData.tasks) setTasks(remoteData.tasks);
           if (remoteData.logs) setLogs(remoteData.logs);
-          if (remoteData.observations) setObservations(remoteData.observations);
+          if (remoteData.observations) {
+            // Apply migration on incoming remote data as well if needed
+            const migratedObs = remoteData.observations.map((o: any) => ({
+              ...o,
+              status: o.status || ObservationStatus.NEW
+            }));
+            setObservations(migratedObs);
+          }
         });
       } catch (error) {
         console.error("Auto-init Firebase failed:", error);
@@ -173,7 +186,13 @@ function App() {
       subscribeToData((remoteData) => {
           if (remoteData.tasks) setTasks(remoteData.tasks);
           if (remoteData.logs) setLogs(remoteData.logs);
-          if (remoteData.observations) setObservations(remoteData.observations);
+           if (remoteData.observations) {
+            const migratedObs = remoteData.observations.map((o: any) => ({
+              ...o,
+              status: o.status || ObservationStatus.NEW
+            }));
+            setObservations(migratedObs);
+          }
       });
       // Also push current local data to ensure cloud has something if it's new
       saveDataToCloud({ tasks, logs, observations });
@@ -275,6 +294,11 @@ function App() {
     updateObservations(updatedObs);
   };
 
+  const editObservation = (updatedObs: Observation) => {
+    const updatedObsList = observations.map(o => o.id === updatedObs.id ? updatedObs : o);
+    updateObservations(updatedObsList);
+  };
+
   const deleteObservation = (id: string) => {
     const updatedObs = observations.filter(o => o.id !== id);
     updateObservations(updatedObs);
@@ -293,8 +317,13 @@ function App() {
   const handleImportData = (data: { tasks: Task[]; logs: DailyLog[]; observations: Observation[] }) => {
     setTasks(data.tasks);
     setLogs(data.logs);
-    setObservations(data.observations);
-    persistData(data.tasks, data.logs, data.observations);
+    // Ensure imported observations have status
+    const migratedObs = (data.observations || []).map((o: any) => ({
+      ...o,
+      status: o.status || ObservationStatus.NEW
+    }));
+    setObservations(migratedObs);
+    persistData(data.tasks, data.logs, migratedObs);
     setCurrentView(ViewMode.DASHBOARD);
   };
 
@@ -583,7 +612,7 @@ function App() {
         {currentView === ViewMode.TASKS && renderTasks()}
         {currentView === ViewMode.JOURNAL && <DailyJournal tasks={tasks} logs={logs} onAddLog={addDailyLog} />}
         {currentView === ViewMode.REPORT && renderReport()}
-        {currentView === ViewMode.OBSERVATIONS && <ObservationsLog observations={observations} onAddObservation={addObservation} onDeleteObservation={deleteObservation} />}
+        {currentView === ViewMode.OBSERVATIONS && <ObservationsLog observations={observations} onAddObservation={addObservation} onEditObservation={editObservation} onDeleteObservation={deleteObservation} />}
         {currentView === ViewMode.SETTINGS && <Settings tasks={tasks} logs={logs} observations={observations} onImportData={handleImportData} onSyncConfigUpdate={handleSyncConfigUpdate} isSyncEnabled={isSyncEnabled} />}
         {currentView === ViewMode.HELP && <UserManual />}
       </main>
