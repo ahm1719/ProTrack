@@ -131,7 +131,7 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
               <option value="">Select a task...</option>
               {sortedTasks.map(t => (
                 <option key={t.id} value={t.id}>
-                  {t.displayId} - {t.description.substring(0, 30)}...
+                  {t.displayId} - {t.description.length > 100 ? `${t.description.substring(0, 100)}...` : t.description}
                 </option>
               ))}
             </select>
