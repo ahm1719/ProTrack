@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Observation, ObservationStatus } from '../types';
-import { StickyNote, Plus, Trash2, Save, Edit2, X, Circle, Clock, CheckCircle2, Archive, ArrowRight } from 'lucide-react';
+import { StickyNote, Plus, Trash2, Save, Edit2, X, Circle, Clock, CheckCircle2, ArrowRight } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface ObservationsLogProps {
@@ -63,7 +63,6 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({ observations, onAddOb
       let nextStatus = obs.status;
       if (obs.status === ObservationStatus.NEW) nextStatus = ObservationStatus.REVIEWING;
       else if (obs.status === ObservationStatus.REVIEWING) nextStatus = ObservationStatus.RESOLVED;
-      else if (obs.status === ObservationStatus.RESOLVED) nextStatus = ObservationStatus.ARCHIVED;
       
       if (nextStatus !== obs.status) {
           onEditObservation({ ...obs, status: nextStatus });
@@ -74,7 +73,6 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({ observations, onAddOb
     { status: ObservationStatus.NEW, label: 'New', icon: Circle, color: 'bg-blue-50 text-blue-700 border-blue-200' },
     { status: ObservationStatus.REVIEWING, label: 'WIP', icon: Clock, color: 'bg-amber-50 text-amber-700 border-amber-200' },
     { status: ObservationStatus.RESOLVED, label: 'Resolved', icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-    { status: ObservationStatus.ARCHIVED, label: 'Archived', icon: Archive, color: 'bg-slate-50 text-slate-600 border-slate-200' },
   ];
 
   return (
@@ -108,7 +106,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({ observations, onAddOb
                     onChange={(e) => setStatus(e.target.value as ObservationStatus)}
                     className="w-full md:w-48 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 cursor-pointer"
                 >
-                    {Object.values(ObservationStatus).map(s => (
+                    {Object.values(ObservationStatus).filter(s => s !== ObservationStatus.ARCHIVED).map(s => (
                     <option key={s} value={s}>{s}</option>
                     ))}
                 </select>
@@ -134,7 +132,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({ observations, onAddOb
 
       {/* Kanban Columns - Flex Grow to Fill Rest */}
       <div className="flex-1 min-h-0 overflow-x-auto">
-        <div className="flex h-full gap-4 min-w-[1000px] md:min-w-0 pb-2">
+        <div className="flex h-full gap-4 min-w-[800px] md:min-w-0 pb-2">
             {columns.map((col) => {
                 const colObs = observations.filter(o => o.status === col.status);
                 const Icon = col.icon;
@@ -187,7 +185,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({ observations, onAddOb
                                             >
                                                 <Trash2 size={12} />
                                             </button>
-                                            {obs.status !== ObservationStatus.ARCHIVED && (
+                                            {obs.status !== ObservationStatus.RESOLVED && (
                                                 <button 
                                                     onClick={() => advanceStatus(obs)}
                                                     className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-emerald-600 transition-colors"
