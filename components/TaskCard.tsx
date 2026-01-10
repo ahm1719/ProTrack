@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Task, Status, Priority } from '../types';
-import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass } from 'lucide-react';
+import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight } from 'lucide-react';
 
 interface TaskCardProps {
   task: Task;
@@ -9,9 +9,20 @@ interface TaskCardProps {
   onDelete: (id: string) => void;
   onAddUpdate: (id: string, content: string) => void;
   allowDelete?: boolean;
+  isReadOnly?: boolean;
+  onNavigate?: () => void;
 }
 
-const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onEdit, onDelete, onAddUpdate, allowDelete = true }) => {
+const TaskCard: React.FC<TaskCardProps> = ({ 
+  task, 
+  onUpdateStatus, 
+  onEdit, 
+  onDelete, 
+  onAddUpdate, 
+  allowDelete = true, 
+  isReadOnly = false,
+  onNavigate 
+}) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [newUpdate, setNewUpdate] = useState('');
 
@@ -63,21 +74,35 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onEdit, onDel
             </span>
           </div>
           <div className="flex items-center gap-1">
-            <button 
-              onClick={() => onEdit(task)} 
-              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-              title="Edit Task"
-            >
-              <Edit2 size={16} />
-            </button>
-            {allowDelete && (
-              <button 
-                onClick={() => onDelete(task.id)} 
-                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                title="Delete Task"
-              >
-                <Trash2 size={16} />
-              </button>
+            {isReadOnly ? (
+              onNavigate && (
+                <button 
+                  onClick={onNavigate} 
+                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-medium"
+                  title="Open Task in Board"
+                >
+                  Open <ArrowRight size={14} />
+                </button>
+              )
+            ) : (
+              <>
+                <button 
+                  onClick={() => onEdit(task)} 
+                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                  title="Edit Task"
+                >
+                  <Edit2 size={16} />
+                </button>
+                {allowDelete && (
+                  <button 
+                    onClick={() => onDelete(task.id)} 
+                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Delete Task"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -98,17 +123,23 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onEdit, onDel
             </div>
           </div>
 
-          <select
-            value={task.status}
-            onChange={(e) => onUpdateStatus(task.id, e.target.value as Status)}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-full cursor-pointer border-none outline-none ring-0 ${getStatusColor(task.status)}`}
-          >
-            {Object.values(Status).map((s) => (
-              <option key={s} value={s} className="bg-white text-slate-800">
-                {s}
-              </option>
-            ))}
-          </select>
+          {isReadOnly ? (
+             <span className={`text-xs font-semibold px-3 py-1.5 rounded-full ${getStatusColor(task.status)}`}>
+               {task.status}
+             </span>
+          ) : (
+            <select
+              value={task.status}
+              onChange={(e) => onUpdateStatus(task.id, e.target.value as Status)}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-full cursor-pointer border-none outline-none ring-0 ${getStatusColor(task.status)}`}
+            >
+              {Object.values(Status).map((s) => (
+                <option key={s} value={s} className="bg-white text-slate-800">
+                  {s}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       </div>
 
@@ -118,31 +149,33 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onEdit, onDel
           onClick={() => setIsExpanded(!isExpanded)}
           className="w-full px-5 py-2 flex items-center justify-center gap-2 text-xs font-medium text-slate-500 hover:bg-slate-50 transition-colors"
         >
-          {isExpanded ? 'Hide History' : 'View History & Add Update'}
+          {isExpanded ? 'Hide History' : (isReadOnly ? 'View History' : 'View History & Add Update')}
           {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
 
         {isExpanded && (
           <div className="px-5 pb-5 bg-slate-50">
-            {/* Quick Update Input */}
-            <form onSubmit={handleSubmitUpdate} className="mb-4 pt-4">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Log a quick update..."
-                  value={newUpdate}
-                  onChange={(e) => setNewUpdate(e.target.value)}
-                  className="w-full pl-4 pr-10 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white text-slate-900"
-                />
-                <button
-                  type="submit"
-                  disabled={!newUpdate.trim()}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-600 disabled:text-slate-300 hover:text-indigo-800"
-                >
-                  <CheckCircle2 size={18} />
-                </button>
-              </div>
-            </form>
+            {/* Quick Update Input - Hidden in Read Only */}
+            {!isReadOnly && (
+              <form onSubmit={handleSubmitUpdate} className="mb-4 pt-4">
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Log a quick update..."
+                    value={newUpdate}
+                    onChange={(e) => setNewUpdate(e.target.value)}
+                    className="w-full pl-4 pr-10 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white text-slate-900"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!newUpdate.trim()}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-600 disabled:text-slate-300 hover:text-indigo-800"
+                  >
+                    <CheckCircle2 size={18} />
+                  </button>
+                </div>
+              </form>
+            )}
 
             <div className="space-y-3 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
               {task.updates.length === 0 && (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Task, DailyLog, Status } from '../types';
 import { Calendar as CalendarIcon, Save, Plus, Clock, Calendar } from 'lucide-react';
 
@@ -16,6 +16,13 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
   // State for new entry form
   const [selectedTaskId, setSelectedTaskId] = useState<string>(initialTaskId || '');
   const [content, setContent] = useState('');
+
+  // Sync state if prop changes (e.g. navigation from dashboard)
+  useEffect(() => {
+    if (initialTaskId) {
+      setSelectedTaskId(initialTaskId);
+    }
+  }, [initialTaskId]);
 
   const selectedTask = tasks.find(t => t.id === selectedTaskId);
 

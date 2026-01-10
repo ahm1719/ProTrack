@@ -526,7 +526,11 @@ function App() {
                         onEdit={(t) => { setEditingTask(t); setIsTaskModalOpen(true); }}
                         onDelete={deleteTask}
                         onAddUpdate={addUpdateToTask}
-                        allowDelete={false}
+                        isReadOnly={true}
+                        onNavigate={() => {
+                            setJournalTaskId(task.id);
+                            setCurrentView(ViewMode.TASKS);
+                        }}
                       />
                   ))}
                   {tasks.filter(t => t.priority === Priority.HIGH && t.status !== Status.DONE).length === 0 && (
