@@ -21,6 +21,7 @@ export interface Task {
   id: string; // Internal UUID
   displayId: string; // User facing ID like P1130-28
   source: string; // CW02, CW49
+  projectId: string; // New Project ID field
   description: string;
   dueDate: string; // YYYY-MM-DD
   status: Status;
@@ -36,10 +37,28 @@ export interface DailyLog {
   content: string;
 }
 
+export interface Observation {
+  id: string;
+  timestamp: string;
+  content: string;
+}
+
+export interface FirebaseConfig {
+  apiKey: string;
+  authDomain: string;
+  projectId: string;
+  storageBucket: string;
+  messagingSenderId: string;
+  appId: string;
+  measurementId?: string;
+}
+
 export enum ViewMode {
   DASHBOARD = 'DASHBOARD',
   TASKS = 'TASKS',
   JOURNAL = 'JOURNAL',
   REPORT = 'REPORT',
+  OBSERVATIONS = 'OBSERVATIONS',
+  SETTINGS = 'SETTINGS',
   HELP = 'HELP'
 }

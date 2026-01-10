@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Task, DailyLog, ViewMode, Status, Priority } from './types';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Task, DailyLog, ViewMode, Status, Priority, Observation, FirebaseConfig } from './types';
 import TaskCard from './components/TaskCard';
 import DailyJournal from './components/DailyJournal';
 import UserManual from './components/UserManual';
+import ObservationsLog from './components/ObservationsLog';
+import Settings from './components/Settings';
 import { generateWeeklySummary } from './services/geminiService';
+import { initFirebase, subscribeToData, saveDataToCloud } from './services/firebaseService';
 import { 
   LayoutDashboard, 
   ListTodo, 
@@ -11,13 +14,15 @@ import {
   Sparkles, 
   Plus, 
   Search, 
-  Download,
   Menu,
   X,
   CheckCircle2,
   Clock,
   AlertCircle,
-  HelpCircle
+  HelpCircle,
+  StickyNote,
+  Settings as SettingsIcon,
+  ExternalLink
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -27,6 +32,7 @@ const INITIAL_TASKS: Task[] = [
     id: '1',
     displayId: 'P1130-28',
     source: 'CW02',
+    projectId: 'PROJ-ALPHA',
     description: 'Prepare a set of slides for the end user to show project stage and limitations.',
     dueDate: '2026-01-09',
     status: Status.IN_PROGRESS,
@@ -41,6 +47,7 @@ const INITIAL_TASKS: Task[] = [
     id: '2',
     displayId: 'G-2',
     source: 'CW49',
+    projectId: 'PROJ-BETA',
     description: 'Think of structure and identify needed folders for Mfiles BSS copy.',
     dueDate: '2026-01-10',
     status: Status.NOT_STARTED,
@@ -54,6 +61,20 @@ const INITIAL_LOGS: DailyLog[] = [
   { id: 'l1', date: '2026-01-08', taskId: '1', content: 'Updated slides to include positive news on AY4/5 and the proposed way forward.' }
 ];
 
+const INITIAL_OBSERVATIONS: Observation[] = [];
+
+// Helper to get current CW
+const getCurrentCW = (): string => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  // Thursday in current week decides the year.
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+  const week1 = new Date(d.getFullYear(), 0, 4);
+  // Adjust to Thursday in week 1 and count number of weeks from date to week1.
+  const weekNumber = 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+  return `CW${weekNumber.toString().padStart(2, '0')}`;
+};
+
 function App() {
   // --- STATE ---
   const [tasks, setTasks] = useState<Task[]>(() => {
@@ -64,6 +85,11 @@ function App() {
   const [logs, setLogs] = useState<DailyLog[]>(() => {
     const saved = localStorage.getItem('protrack_logs');
     return saved ? JSON.parse(saved) : INITIAL_LOGS;
+  });
+
+  const [observations, setObservations] = useState<Observation[]>(() => {
+    const saved = localStorage.getItem('protrack_observations');
+    return saved ? JSON.parse(saved) : INITIAL_OBSERVATIONS;
   });
 
   const [currentView, setCurrentView] = useState<ViewMode>(ViewMode.DASHBOARD);
@@ -79,14 +105,89 @@ function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // --- EFFECTS ---
-  useEffect(() => {
-    localStorage.setItem('protrack_tasks', JSON.stringify(tasks));
-  }, [tasks]);
+  // Sync State
+  const [isSyncEnabled, setIsSyncEnabled] = useState(false);
 
+  // --- SYNC EFFECTS ---
+  
+  // 1. Initialize Firebase on Boot
   useEffect(() => {
-    localStorage.setItem('protrack_logs', JSON.stringify(logs));
-  }, [logs]);
+    const savedConfig = localStorage.getItem('protrack_firebase_config');
+    if (savedConfig) {
+      try {
+        const config = JSON.parse(savedConfig) as FirebaseConfig;
+        initFirebase(config);
+        setIsSyncEnabled(true);
+        
+        // Start Listening
+        subscribeToData((remoteData) => {
+          if (remoteData.tasks) setTasks(remoteData.tasks);
+          if (remoteData.logs) setLogs(remoteData.logs);
+          if (remoteData.observations) setObservations(remoteData.observations);
+        });
+      } catch (error) {
+        console.error("Auto-init Firebase failed:", error);
+        setIsSyncEnabled(false);
+      }
+    }
+  }, []);
+
+  // 2. Persist to Local Storage & Cloud (if enabled)
+  const persistData = useCallback((newTasks: Task[], newLogs: DailyLog[], newObs: Observation[]) => {
+    // Save to Local Storage
+    localStorage.setItem('protrack_tasks', JSON.stringify(newTasks));
+    localStorage.setItem('protrack_logs', JSON.stringify(newLogs));
+    localStorage.setItem('protrack_observations', JSON.stringify(newObs));
+
+    // Save to Cloud if Sync is enabled
+    if (isSyncEnabled) {
+      saveDataToCloud({
+        tasks: newTasks,
+        logs: newLogs,
+        observations: newObs
+      });
+    }
+  }, [isSyncEnabled]);
+
+  // Wrapper to update state and persist
+  const updateTasks = (newTasks: Task[]) => {
+    setTasks(newTasks);
+    persistData(newTasks, logs, observations);
+  };
+  
+  const updateLogs = (newLogs: DailyLog[]) => {
+    setLogs(newLogs);
+    persistData(tasks, newLogs, observations);
+  };
+
+  const updateObservations = (newObs: Observation[]) => {
+    setObservations(newObs);
+    persistData(tasks, logs, newObs);
+  };
+
+  const handleSyncConfigUpdate = (config: FirebaseConfig | null) => {
+    if (config) {
+      setIsSyncEnabled(true);
+      // Immediately try to sync current local data to cloud to 'init' the cloud if empty,
+      // or start the listener.
+      subscribeToData((remoteData) => {
+          if (remoteData.tasks) setTasks(remoteData.tasks);
+          if (remoteData.logs) setLogs(remoteData.logs);
+          if (remoteData.observations) setObservations(remoteData.observations);
+      });
+      // Also push current local data to ensure cloud has something if it's new
+      saveDataToCloud({ tasks, logs, observations });
+    } else {
+      setIsSyncEnabled(false);
+      // Refresh page to clear listeners is simplest way to fully disconnect in this architecture
+      window.location.reload(); 
+    }
+  };
+
+  const openInNewTab = () => {
+    window.open(window.location.href, '_blank');
+  };
+
 
   // --- ACTIONS ---
 
@@ -97,7 +198,8 @@ function App() {
     const newTask: Task = {
       id: editingTask ? editingTask.id : uuidv4(),
       displayId: (formData.get('displayId') as string) || `T-${Math.floor(Math.random() * 1000)}`,
-      source: (formData.get('source') as string) || 'CW00',
+      source: (formData.get('source') as string) || getCurrentCW(),
+      projectId: (formData.get('projectId') as string) || '',
       description: formData.get('description') as string,
       dueDate: formData.get('dueDate') as string,
       priority: formData.get('priority') as Priority,
@@ -106,18 +208,21 @@ function App() {
       createdAt: editingTask ? editingTask.createdAt : new Date().toISOString(),
     };
 
+    let updatedTasks = [];
     if (editingTask) {
-      setTasks(prev => prev.map(t => t.id === editingTask.id ? newTask : t));
+      updatedTasks = tasks.map(t => t.id === editingTask.id ? newTask : t);
     } else {
-      setTasks(prev => [newTask, ...prev]);
+      updatedTasks = [newTask, ...tasks];
     }
     
+    updateTasks(updatedTasks);
     setIsTaskModalOpen(false);
     setEditingTask(null);
   };
 
   const updateTaskStatus = (id: string, status: Status) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, status } : t));
+    const updatedTasks = tasks.map(t => t.id === id ? { ...t, status } : t);
+    updateTasks(updatedTasks);
   };
 
   const addUpdateToTask = (taskId: string, content: string) => {
@@ -135,26 +240,52 @@ function App() {
       content
     };
 
-    setTasks(prev => prev.map(t => 
+    const updatedTasks = tasks.map(t => 
       t.id === taskId ? { ...t, updates: [...t.updates, newUpdate] } : t
-    ));
-    setLogs(prev => [...prev, newLog]);
+    );
+    const updatedLogs = [...logs, newLog];
+
+    setTasks(updatedTasks);
+    setLogs(updatedLogs);
+    persistData(updatedTasks, updatedLogs, observations);
   };
 
   const addDailyLog = (logData: Omit<DailyLog, 'id'>) => {
     const newLog = { ...logData, id: uuidv4() };
-    setLogs(prev => [...prev, newLog]);
+    const updatedLogs = [...logs, newLog];
 
     // Sync back to task history
     const updateEntry = {
       id: uuidv4(),
-      timestamp: new Date().toISOString(), // Use now for ordering, even if logged for a different date visually
+      timestamp: new Date().toISOString(),
       content: `[Log Entry: ${logData.date}] ${logData.content}`
     };
 
-    setTasks(prev => prev.map(t => 
+    const updatedTasks = tasks.map(t => 
       t.id === logData.taskId ? { ...t, updates: [...t.updates, updateEntry] } : t
-    ));
+    );
+
+    setTasks(updatedTasks);
+    setLogs(updatedLogs);
+    persistData(updatedTasks, updatedLogs, observations);
+  };
+
+  const addObservation = (obs: Observation) => {
+    const updatedObs = [...observations, obs];
+    updateObservations(updatedObs);
+  };
+
+  const deleteObservation = (id: string) => {
+    const updatedObs = observations.filter(o => o.id !== id);
+    updateObservations(updatedObs);
+  };
+
+  const handleImportData = (data: { tasks: Task[]; logs: DailyLog[]; observations: Observation[] }) => {
+    setTasks(data.tasks);
+    setLogs(data.logs);
+    setObservations(data.observations);
+    persistData(data.tasks, data.logs, data.observations);
+    setCurrentView(ViewMode.DASHBOARD);
   };
 
   const handleGenerateSummary = async () => {
@@ -170,22 +301,20 @@ function App() {
     }
   };
 
-  const downloadData = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ tasks, logs }, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "protrack_backup.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-  };
-
   // --- FILTERS ---
   const filteredTasks = tasks.filter(t => 
     t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.displayId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    t.source.toLowerCase().includes(searchTerm.toLowerCase())
+    t.source.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    t.projectId.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Get active Project IDs for dropdown
+  const activeProjectIds = Array.from(new Set(
+    tasks
+      .filter(t => t.status !== Status.COMPLETED && t.projectId)
+      .map(t => t.projectId)
+  )).sort();
 
   // --- RENDER HELPERS ---
   const renderDashboard = () => (
@@ -335,7 +464,6 @@ function App() {
              </div>
           </div>
           <div className="p-8 prose prose-slate max-w-none">
-            {/* Simple Markdown Rendering */}
             {summary.split('\n').map((line, i) => {
               if (line.startsWith('## ')) return <h2 key={i} className="text-xl font-bold mt-6 mb-3 text-slate-800">{line.replace('## ', '')}</h2>;
               if (line.startsWith('### ')) return <h3 key={i} className="text-lg font-bold mt-4 mb-2 text-slate-700">{line.replace('### ', '')}</h3>;
@@ -385,6 +513,18 @@ function App() {
           >
             <Sparkles size={20} /> Weekly Report
           </button>
+           <button 
+            onClick={() => setCurrentView(ViewMode.OBSERVATIONS)}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === ViewMode.OBSERVATIONS ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-500 hover:bg-slate-50'}`}
+          >
+            <StickyNote size={20} /> Observations
+          </button>
+           <button 
+            onClick={() => setCurrentView(ViewMode.SETTINGS)}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === ViewMode.SETTINGS ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-500 hover:bg-slate-50'}`}
+          >
+            <SettingsIcon size={20} /> Settings & Data
+          </button>
           <button 
             onClick={() => setCurrentView(ViewMode.HELP)}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === ViewMode.HELP ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-500 hover:bg-slate-50'}`}
@@ -393,18 +533,23 @@ function App() {
           </button>
         </nav>
         <div className="p-4 border-t border-slate-100">
-          <button onClick={downloadData} className="flex items-center gap-2 text-xs text-slate-400 hover:text-slate-600 transition-colors w-full justify-center">
-            <Download size={14} /> Backup Data (JSON)
-          </button>
+           <button onClick={openInNewTab} className="flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-indigo-600 transition-colors w-full px-4">
+              <ExternalLink size={14} /> Open App in New Tab
+           </button>
         </div>
       </aside>
 
       {/* Mobile Header */}
       <div className="md:hidden fixed top-0 w-full bg-white border-b border-slate-200 z-20 px-4 py-3 flex justify-between items-center shadow-sm">
          <h1 className="text-xl font-bold text-indigo-600">ProTrack AI</h1>
-         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-slate-600">
-           {isMobileMenuOpen ? <X /> : <Menu />}
-         </button>
+         <div className="flex items-center gap-4">
+             <button onClick={openInNewTab} className="text-slate-400 hover:text-indigo-600">
+               <ExternalLink size={20}/>
+             </button>
+             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-slate-600">
+               {isMobileMenuOpen ? <X /> : <Menu />}
+             </button>
+         </div>
       </div>
 
       {/* Mobile Menu Overlay */}
@@ -414,6 +559,8 @@ function App() {
            <button onClick={() => { setCurrentView(ViewMode.TASKS); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Tasks</button>
            <button onClick={() => { setCurrentView(ViewMode.JOURNAL); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Daily Journal</button>
            <button onClick={() => { setCurrentView(ViewMode.REPORT); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">AI Report</button>
+           <button onClick={() => { setCurrentView(ViewMode.OBSERVATIONS); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Observations</button>
+           <button onClick={() => { setCurrentView(ViewMode.SETTINGS); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Settings & Data</button>
            <button onClick={() => { setCurrentView(ViewMode.HELP); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">User Manual</button>
         </div>
       )}
@@ -424,6 +571,8 @@ function App() {
         {currentView === ViewMode.TASKS && renderTasks()}
         {currentView === ViewMode.JOURNAL && <DailyJournal tasks={tasks} logs={logs} onAddLog={addDailyLog} />}
         {currentView === ViewMode.REPORT && renderReport()}
+        {currentView === ViewMode.OBSERVATIONS && <ObservationsLog observations={observations} onAddObservation={addObservation} onDeleteObservation={deleteObservation} />}
+        {currentView === ViewMode.SETTINGS && <Settings tasks={tasks} logs={logs} observations={observations} onImportData={handleImportData} onSyncConfigUpdate={handleSyncConfigUpdate} isSyncEnabled={isSyncEnabled} />}
         {currentView === ViewMode.HELP && <UserManual />}
       </main>
 
@@ -438,26 +587,41 @@ function App() {
             <form onSubmit={handleCreateOrUpdateTask} className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Source ID</label>
-                  <input name="source" defaultValue={editingTask?.source} placeholder="e.g. CW02" className="w-full p-2 border border-slate-300 rounded-lg text-sm" required />
+                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Source</label>
+                  <input name="source" defaultValue={editingTask?.source || getCurrentCW()} placeholder="e.g. CW02" className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900" required />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Display ID</label>
-                  <input name="displayId" defaultValue={editingTask?.displayId} placeholder="e.g. P1130-28" className="w-full p-2 border border-slate-300 rounded-lg text-sm" required />
+                  <input name="displayId" defaultValue={editingTask?.displayId} placeholder="e.g. P1130-28" className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900" required />
                 </div>
               </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Project ID</label>
+                <input 
+                  list="projectIds" 
+                  name="projectId" 
+                  defaultValue={editingTask?.projectId} 
+                  placeholder="Select or Type Project ID..." 
+                  className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900" 
+                />
+                <datalist id="projectIds">
+                  {activeProjectIds.map(pid => <option key={pid} value={pid} />)}
+                </datalist>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Description</label>
-                <textarea name="description" defaultValue={editingTask?.description} rows={3} className="w-full p-2 border border-slate-300 rounded-lg text-sm" required />
+                <textarea name="description" defaultValue={editingTask?.description} rows={3} className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900" required />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Due Date</label>
-                  <input type="date" name="dueDate" defaultValue={editingTask?.dueDate} className="w-full p-2 border border-slate-300 rounded-lg text-sm" required />
+                  <input type="date" name="dueDate" defaultValue={editingTask?.dueDate} className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900" required />
                 </div>
                 <div>
                    <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Priority</label>
-                   <select name="priority" defaultValue={editingTask?.priority || Priority.MEDIUM} className="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                   <select name="priority" defaultValue={editingTask?.priority || Priority.MEDIUM} className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900">
                      <option value={Priority.HIGH}>High</option>
                      <option value={Priority.MEDIUM}>Medium</option>
                      <option value={Priority.LOW}>Low</option>
@@ -466,7 +630,7 @@ function App() {
               </div>
               <div>
                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Status</label>
-                 <select name="status" defaultValue={editingTask?.status || Status.NOT_STARTED} className="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                 <select name="status" defaultValue={editingTask?.status || Status.NOT_STARTED} className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900">
                    {Object.values(Status).map(s => <option key={s} value={s}>{s}</option>)}
                  </select>
               </div>

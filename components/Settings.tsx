@@ -1,0 +1,322 @@
+import React, { useRef, useState, useEffect } from 'react';
+import { Download, Upload, Cloud, Check, Wifi, WifiOff, AlertTriangle, RefreshCw, Key, Eye, EyeOff } from 'lucide-react';
+import { Task, DailyLog, Observation, FirebaseConfig } from '../types';
+import { initFirebase } from '../services/firebaseService';
+
+interface SettingsProps {
+  tasks: Task[];
+  logs: DailyLog[];
+  observations: Observation[];
+  onImportData: (data: { tasks: Task[]; logs: DailyLog[]; observations: Observation[] }) => void;
+  onSyncConfigUpdate: (config: FirebaseConfig | null) => void;
+  isSyncEnabled: boolean;
+}
+
+// Configuration from user screenshot
+const PRECONFIGURED_FIREBASE: FirebaseConfig = {
+  apiKey: "AIzaSyAJI8MtMerFlg_5OX7j_sOY4PNW0fm3P8g",
+  authDomain: "my-protrack-1693a.firebaseapp.com",
+  projectId: "my-protrack-1693a",
+  storageBucket: "my-protrack-1693a.firebasestorage.app",
+  messagingSenderId: "558910554999",
+  appId: "1:558910554999:web:76ca794413633d68df1772",
+  measurementId: "G-D2SKT81MGL"
+};
+
+const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImportData, onSyncConfigUpdate, isSyncEnabled }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  
+  // Default to the preconfigured JSON to make it easy for the user
+  const [configJson, setConfigJson] = useState(JSON.stringify(PRECONFIGURED_FIREBASE, null, 2));
+  const [configError, setConfigError] = useState<string | null>(null);
+  const [needsReload, setNeedsReload] = useState(false);
+
+  // Gemini Key State
+  const [geminiKey, setGeminiKey] = useState('');
+  const [showKey, setShowKey] = useState(false);
+
+  // Load existing config into text area if available (overrides default if they changed it)
+  useEffect(() => {
+    const savedConfig = localStorage.getItem('protrack_firebase_config');
+    if (savedConfig) {
+      setConfigJson(JSON.stringify(JSON.parse(savedConfig), null, 2));
+    }
+    
+    const savedGeminiKey = localStorage.getItem('protrack_gemini_key');
+    if (savedGeminiKey) {
+      setGeminiKey(savedGeminiKey);
+    }
+  }, []);
+
+  const handleSaveGeminiKey = () => {
+    localStorage.setItem('protrack_gemini_key', geminiKey);
+    alert("API Key saved securely to your browser's local storage.");
+  };
+
+  const handleExport = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ tasks, logs, observations }, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    const dateStr = new Date().toISOString().split('T')[0];
+    downloadAnchorNode.setAttribute("download", `protrack_backup_${dateStr}.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        if (json.tasks && json.logs) {
+          onImportData({
+            tasks: json.tasks || [],
+            logs: json.logs || [],
+            observations: json.observations || []
+          });
+          setImportStatus('success');
+          setTimeout(() => setImportStatus('idle'), 3000);
+        } else {
+          throw new Error("Invalid file format");
+        }
+      } catch (err) {
+        setImportStatus('error');
+        setTimeout(() => setImportStatus('idle'), 3000);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleConnectFirebase = () => {
+    setConfigError(null);
+    setNeedsReload(false);
+    try {
+      // Allow user to paste just the object or the whole JS snippet, we try to extract the JSON
+      let cleanJson = configJson;
+      // Heuristic to clean up JS assignment if user pastes "const firebaseConfig = { ... };"
+      if (cleanJson.includes('=')) {
+        cleanJson = cleanJson.substring(cleanJson.indexOf('{'), cleanJson.lastIndexOf('}') + 1);
+      }
+      // Remove trailing commas which are valid in JS but not JSON
+      cleanJson = cleanJson.replace(/,\s*}/g, '}'); 
+      // Quote unquoted keys (basic attempt)
+      cleanJson = cleanJson.replace(/(\s*?{\s*?|\s*?,\s*?)(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '$1"$3":');
+      // Fix single quotes to double quotes
+      cleanJson = cleanJson.replace(/'/g, '"');
+
+      const config = JSON.parse(cleanJson) as FirebaseConfig;
+      
+      if (!config.apiKey || !config.projectId) {
+        throw new Error("Invalid Config: Missing apiKey or projectId");
+      }
+
+      // Test Connection
+      initFirebase(config);
+      
+      // If we get here without throwing, success
+      localStorage.setItem('protrack_firebase_config', JSON.stringify(config));
+      onSyncConfigUpdate(config);
+
+    } catch (err: any) {
+      console.error(err);
+      setConfigError(err.message || "Invalid JSON format");
+      if (err.message && err.message.includes("Version Mismatch")) {
+        setNeedsReload(true);
+      }
+    }
+  };
+
+  const handleDisconnect = () => {
+    localStorage.removeItem('protrack_firebase_config');
+    onSyncConfigUpdate(null);
+    setConfigJson(JSON.stringify(PRECONFIGURED_FIREBASE, null, 2));
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-12">
+      <div className="text-center space-y-4">
+        <h1 className="text-3xl font-bold text-slate-900">Settings & Synchronization</h1>
+        <p className="text-slate-500 max-w-2xl mx-auto">
+          Configure real-time sync, manage local backups, and set API keys.
+        </p>
+      </div>
+
+      <div className="grid gap-8">
+        {/* Gemini API Key Section */}
+        <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-purple-50">
+             <div className="p-2 rounded-lg bg-purple-200 text-purple-700">
+               <Key size={24} />
+             </div>
+             <div>
+               <h2 className="text-lg font-bold text-slate-800">AI Report Configuration</h2>
+               <p className="text-xs text-slate-500">Required for Weekly Summary generation.</p>
+             </div>
+          </div>
+          <div className="p-6">
+            <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Gemini API Key</label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <input 
+                  type={showKey ? "text" : "password"}
+                  value={geminiKey}
+                  onChange={(e) => setGeminiKey(e.target.value)}
+                  placeholder="Enter your Google GenAI API Key..."
+                  className="w-full pl-4 pr-10 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                />
+                <button 
+                  type="button"
+                  onClick={() => setShowKey(!showKey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showKey ? <EyeOff size={16}/> : <Eye size={16}/>}
+                </button>
+              </div>
+              <button 
+                onClick={handleSaveGeminiKey}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                Save Key
+              </button>
+            </div>
+            <p className="text-xs text-slate-400 mt-2">
+              Get a key at <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline">Google AI Studio</a>. stored locally in your browser.
+            </p>
+          </div>
+        </section>
+
+        {/* Cloud Sync Section */}
+        <section className={`bg-white rounded-2xl border ${isSyncEnabled ? 'border-emerald-200 shadow-emerald-100' : 'border-slate-200'} shadow-sm overflow-hidden`}>
+          <div className={`p-6 border-b ${isSyncEnabled ? 'bg-emerald-50 border-emerald-100' : 'bg-slate-50 border-slate-100'} flex justify-between items-center`}>
+            <div className="flex items-center gap-3">
+               <div className={`p-2 rounded-lg ${isSyncEnabled ? 'bg-emerald-200 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}>
+                 <Cloud size={24} />
+               </div>
+               <div>
+                 <h2 className="text-lg font-bold text-slate-800">Cloud Sync (Firebase)</h2>
+                 <p className="text-xs text-slate-500">Sync across Laptop, PC, and Mobile instantly.</p>
+               </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {isSyncEnabled ? (
+                <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold border border-emerald-200">
+                  <Wifi size={14} /> Connected
+                </span>
+              ) : (
+                <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-500 text-xs font-bold border border-slate-200">
+                  <WifiOff size={14} /> Offline
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="p-6 space-y-4">
+             {!isSyncEnabled ? (
+               <>
+                 <div className="text-sm text-slate-600 bg-blue-50 p-4 rounded-xl border border-blue-100">
+                   <strong>Setup:</strong> We have pre-loaded your configuration from the screenshot. Just click Connect below.
+                 </div>
+                 
+                 <div>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Firebase Configuration</label>
+                    <textarea 
+                      value={configJson}
+                      onChange={(e) => setConfigJson(e.target.value)}
+                      placeholder={'{ "apiKey": "...", "authDomain": "...", ... }'}
+                      className="w-full h-48 p-4 font-mono text-xs border border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-900 text-emerald-400"
+                    />
+                    {configError && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-red-500 text-xs flex items-center gap-1"><AlertTriangle size={12}/> {configError}</p>
+                        {needsReload && (
+                          <button 
+                            onClick={() => window.location.reload()}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors"
+                          >
+                            <RefreshCw size={12} /> Reload Page to Apply Fix
+                          </button>
+                        )}
+                      </div>
+                    )}
+                 </div>
+
+                 <button 
+                  onClick={handleConnectFirebase}
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium flex items-center justify-center gap-2 transition-colors shadow-lg shadow-indigo-200"
+                 >
+                   Connect Cloud Sync
+                 </button>
+               </>
+             ) : (
+               <div className="text-center py-6 space-y-4">
+                  <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600">
+                    <Check size={32} strokeWidth={3} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-800">Synchronization Active</h3>
+                    <p className="text-sm text-slate-500">Your data is automatically backing up to the cloud.</p>
+                  </div>
+                  <button 
+                    onClick={handleDisconnect}
+                    className="text-sm text-red-500 hover:text-red-700 hover:underline"
+                  >
+                    Disconnect & Stop Sync
+                  </button>
+               </div>
+             )}
+          </div>
+        </section>
+
+        {/* Manual Backup Section */}
+        <div className="grid md:grid-cols-2 gap-8 pt-4 border-t border-slate-200">
+          {/* Export Section */}
+          <div className="flex flex-col items-center text-center p-6 bg-slate-50 rounded-xl">
+            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mb-3 shadow-sm text-slate-600">
+               <Download size={20} />
+            </div>
+            <h3 className="font-bold text-slate-800 mb-1">Manual Backup</h3>
+            <p className="text-xs text-slate-500 mb-4">Download a local JSON copy.</p>
+            <button 
+              onClick={handleExport}
+              className="w-full py-2 bg-white border border-slate-300 hover:border-indigo-500 text-slate-700 hover:text-indigo-600 rounded-lg text-sm font-medium transition-colors shadow-sm"
+            >
+              Download File
+            </button>
+          </div>
+
+          {/* Import Section */}
+          <div className="flex flex-col items-center text-center p-6 bg-slate-50 rounded-xl">
+             <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mb-3 shadow-sm text-slate-600">
+               <Upload size={20} />
+            </div>
+            <h3 className="font-bold text-slate-800 mb-1">Restore Backup</h3>
+            <p className="text-xs text-slate-500 mb-4">Overwrite current data from file.</p>
+            <input 
+              type="file" 
+              accept=".json" 
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full py-2 bg-white border border-slate-300 hover:border-emerald-500 text-slate-700 hover:text-emerald-600 rounded-lg text-sm font-medium transition-colors shadow-sm"
+            >
+              Select File
+            </button>
+             {importStatus === 'success' && <p className="text-xs text-emerald-600 mt-2 font-bold">Restore Successful!</p>}
+             {importStatus === 'error' && <p className="text-xs text-red-600 mt-2 font-bold">Invalid File!</p>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Settings;

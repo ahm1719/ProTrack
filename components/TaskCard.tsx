@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Task, Status, Priority } from '../types';
-import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2 } from 'lucide-react';
 
 interface TaskCardProps {
   task: Task;
@@ -42,10 +42,16 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onEdit, onAdd
     <div className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-300 hover:shadow-md ${task.status === Status.COMPLETED ? 'opacity-75' : ''}`}>
       <div className="p-5">
         <div className="flex justify-between items-start mb-3">
-          <div className="flex gap-2 items-center">
+          <div className="flex flex-wrap gap-2 items-center">
              <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
               {task.source}
             </span>
+             {task.projectId && (
+              <span className="flex items-center gap-1 font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                <FolderGit2 size={10} />
+                {task.projectId}
+              </span>
+            )}
             <span className="font-mono text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
               {task.displayId}
             </span>
@@ -108,7 +114,7 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, onUpdateStatus, onEdit, onAdd
                   placeholder="Log a quick update..."
                   value={newUpdate}
                   onChange={(e) => setNewUpdate(e.target.value)}
-                  className="w-full pl-4 pr-10 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  className="w-full pl-4 pr-10 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white text-slate-900"
                 />
                 <button
                   type="submit"

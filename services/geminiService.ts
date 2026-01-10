@@ -10,9 +10,11 @@ const getStartOfWeek = (date: Date) => {
 
 export const generateWeeklySummary = async (tasks: Task[], logs: DailyLog[]): Promise<string> => {
   try {
-    const apiKey = process.env.API_KEY;
+    // UPDATED: Try to get key from localStorage first (for deployed apps), fallback to process.env (local dev)
+    const apiKey = localStorage.getItem('protrack_gemini_key') || process.env.API_KEY;
+    
     if (!apiKey) {
-      throw new Error("API Key is missing.");
+      throw new Error("API Key is missing. Please go to Settings and enter your Gemini API Key.");
     }
 
     const ai = new GoogleGenAI({ apiKey });
@@ -74,8 +76,12 @@ export const generateWeeklySummary = async (tasks: Task[], logs: DailyLog[]): Pr
 
     return response.text || "Could not generate summary.";
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini API Error:", error);
-    throw error;
+    // Propagate a clean error message
+    if (error.message.includes("API Key is missing")) {
+      throw error;
+    }
+    throw new Error("AI Service Error: " + (error.message || "Unknown error"));
   }
 };
