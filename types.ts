@@ -1,3 +1,4 @@
+
 export enum Priority {
   HIGH = 'High',
   MEDIUM = 'Medium',
@@ -8,7 +9,8 @@ export enum Status {
   NOT_STARTED = 'Not Started',
   IN_PROGRESS = 'In Progress',
   WAITING = 'Waiting for others',
-  DONE = 'Done'
+  DONE = 'Done',
+  ARCHIVED = 'Archived'
 }
 
 export enum ObservationStatus {

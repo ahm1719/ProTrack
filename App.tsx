@@ -27,7 +27,10 @@ import {
   Activity,
   BarChart3,
   AlertTriangle,
-  ArrowRight
+  ArrowRight,
+  ChevronDown,
+  ChevronRight,
+  Archive
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -124,6 +127,9 @@ function App() {
   // Controlled inputs for Modal to support auto-ID generation
   const [modalProjectId, setModalProjectId] = useState('');
   const [modalDisplayId, setModalDisplayId] = useState('');
+
+  // UI State for groupings
+  const [isCompletedExpanded, setIsCompletedExpanded] = useState(false);
 
   // AI Summary State
   const [summary, setSummary] = useState<string>('');
@@ -285,7 +291,7 @@ function App() {
   const handleProjectIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVal = e.target.value;
     setModalProjectId(newVal);
-    // Only auto-generate ID if we are creating a new task
+    // Only auto-generate ID if we are creating a new task, but allow user to continue editing
     if (!editingTask) {
        setModalDisplayId(generateNextDisplayId(newVal));
     }
@@ -450,10 +456,23 @@ function App() {
       .map(t => t.projectId)
   )).sort();
 
+  // --- GROUPING LOGIC ---
+  const todayStr = new Date().toISOString().split('T')[0];
+  
+  const activeTasks = filteredTasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate)); // Older (smaller date) at top
+
+  const completedTasks = filteredTasks.filter(t => t.status === Status.DONE || t.status === Status.ARCHIVED)
+    .sort((a, b) => b.dueDate.localeCompare(a.dueDate)); // Recent at top for completed
+
+  // Group active tasks by due date chunks for clarity
+  const overdueActive = activeTasks.filter(t => t.dueDate < todayStr);
+  const todayActive = activeTasks.filter(t => t.dueDate === todayStr);
+  const upcomingActive = activeTasks.filter(t => t.dueDate > todayStr);
+
   // --- RENDER HELPERS ---
   const renderDashboard = () => {
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
     
     // Start of week (Monday)
     const startOfWeek = new Date(today);
@@ -464,15 +483,13 @@ function App() {
     const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
 
     // Calc Stats
-    const overdueTasks = tasks.filter(t => t.status !== Status.DONE && t.dueDate < todayStr);
-    const dueTodayTasks = tasks.filter(t => t.status !== Status.DONE && t.dueDate === todayStr);
+    const overdueTasks = tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate < todayStr);
+    const dueTodayTasks = tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate === todayStr);
     
     // Weekly Stats
     const logsThisWeek = logs.filter(l => l.date >= startOfWeekStr);
-    const activeTasksThisWeek = new Set(logsThisWeek.map(l => l.taskId)).size;
-    const completedTasks = tasks.filter(t => t.status === Status.DONE).length;
-    const activeTasksTotal = tasks.filter(t => t.status === Status.IN_PROGRESS || t.status === Status.WAITING).length;
-
+    const completedTasksCount = tasks.filter(t => t.status === Status.DONE).length;
+    
     // Status Counts for "Active Tasks This Week" card
     const countNotStarted = tasks.filter(t => t.status === Status.NOT_STARTED).length;
     const countInProgress = tasks.filter(t => t.status === Status.IN_PROGRESS).length;
@@ -578,7 +595,7 @@ function App() {
                   <button onClick={() => setCurrentView(ViewMode.TASKS)} className="text-sm text-indigo-600 font-medium hover:underline">View All</button>
                 </div>
                 <div className="space-y-4">
-                  {tasks.filter(t => t.priority === Priority.HIGH && t.status !== Status.DONE).slice(0, 3).map(task => (
+                  {tasks.filter(t => t.priority === Priority.HIGH && t.status !== Status.DONE && t.status !== Status.ARCHIVED).slice(0, 3).map(task => (
                     <TaskCard 
                         key={task.id} 
                         task={task} 
@@ -593,7 +610,7 @@ function App() {
                         }}
                       />
                   ))}
-                  {tasks.filter(t => t.priority === Priority.HIGH && t.status !== Status.DONE).length === 0 && (
+                  {tasks.filter(t => t.priority === Priority.HIGH && t.status !== Status.DONE && t.status !== Status.ARCHIVED).length === 0 && (
                     <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
                       No high priority tasks pending.
                     </div>
@@ -694,19 +711,89 @@ function App() {
         </div>
 
         <div className="grid grid-cols-1 gap-4">
-          {filteredTasks.map(task => (
-            <TaskCard 
-              key={task.id} 
-              task={task} 
-              onUpdateStatus={updateTaskStatus}
-              onEdit={(t) => openTaskModal(t)}
-              onDelete={deleteTask}
-              onAddUpdate={addUpdateToTask}
-            />
-          ))}
-          {filteredTasks.length === 0 && (
-            <div className="text-center py-12 text-slate-400">
-              No tasks found matching your search.
+          {/* Overdue Section */}
+          {overdueActive.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold text-red-600 uppercase tracking-wide px-1">Overdue</h3>
+              {overdueActive.map(task => (
+                 <TaskCard 
+                  key={task.id} 
+                  task={task} 
+                  onUpdateStatus={updateTaskStatus}
+                  onEdit={(t) => openTaskModal(t)}
+                  onDelete={deleteTask}
+                  onAddUpdate={addUpdateToTask}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Today Section */}
+          {todayActive.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold text-amber-600 uppercase tracking-wide px-1">Due Today</h3>
+              {todayActive.map(task => (
+                 <TaskCard 
+                  key={task.id} 
+                  task={task} 
+                  onUpdateStatus={updateTaskStatus}
+                  onEdit={(t) => openTaskModal(t)}
+                  onDelete={deleteTask}
+                  onAddUpdate={addUpdateToTask}
+                />
+              ))}
+            </div>
+          )}
+
+           {/* Upcoming Section */}
+          {upcomingActive.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide px-1">Upcoming</h3>
+              {upcomingActive.map(task => (
+                 <TaskCard 
+                  key={task.id} 
+                  task={task} 
+                  onUpdateStatus={updateTaskStatus}
+                  onEdit={(t) => openTaskModal(t)}
+                  onDelete={deleteTask}
+                  onAddUpdate={addUpdateToTask}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Fallback for empty active */}
+          {activeTasks.length === 0 && (
+             <div className="text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
+               No active tasks matching filter.
+             </div>
+          )}
+
+          {/* Completed/Archived Section */}
+          {completedTasks.length > 0 && (
+            <div className="mt-8 border-t border-slate-200 pt-4">
+               <button 
+                onClick={() => setIsCompletedExpanded(!isCompletedExpanded)}
+                className="flex items-center gap-2 text-slate-500 hover:text-slate-800 font-medium mb-4 w-full"
+               >
+                 {isCompletedExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                 Completed & Archived ({completedTasks.length})
+               </button>
+               
+               {isCompletedExpanded && (
+                 <div className="space-y-4 animate-fade-in">
+                    {completedTasks.map(task => (
+                       <TaskCard 
+                        key={task.id} 
+                        task={task} 
+                        onUpdateStatus={updateTaskStatus}
+                        onEdit={(t) => openTaskModal(t)}
+                        onDelete={deleteTask}
+                        onAddUpdate={addUpdateToTask}
+                      />
+                    ))}
+                 </div>
+               )}
             </div>
           )}
         </div>
@@ -883,35 +970,34 @@ function App() {
                   <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Source</label>
                   <input name="source" defaultValue={editingTask?.source || getCurrentCW()} placeholder="e.g. CW02" className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900" required />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Display ID</label>
+                 <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Project ID</label>
                   <input 
+                    list="projectIds" 
+                    name="projectId" 
+                    value={modalProjectId} 
+                    onChange={handleProjectIdChange}
+                    placeholder="Select or Type Project ID..." 
+                    className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900" 
+                    required
+                  />
+                  <datalist id="projectIds">
+                    {activeProjectIds.map(pid => <option key={pid} value={pid} />)}
+                  </datalist>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Display ID</label>
+                 <input 
                     name="displayId" 
                     value={modalDisplayId} 
                     onChange={(e) => setModalDisplayId(e.target.value)}
                     placeholder="e.g. P1130-28" 
                     className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 text-slate-900 font-mono" 
                     required 
-                    readOnly={!editingTask} // Auto-generated for new tasks, usually separate field for updates but keeping flexibility
                   />
-                  {!editingTask && <p className="text-[10px] text-indigo-500 mt-1">Auto-generated based on Project ID</p>}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Project ID</label>
-                <input 
-                  list="projectIds" 
-                  name="projectId" 
-                  value={modalProjectId} 
-                  onChange={handleProjectIdChange}
-                  placeholder="Select or Type Project ID..." 
-                  className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900" 
-                  required
-                />
-                <datalist id="projectIds">
-                  {activeProjectIds.map(pid => <option key={pid} value={pid} />)}
-                </datalist>
+                  {!editingTask && <p className="text-[10px] text-indigo-500 mt-1">Auto-generated based on Project ID (Editable)</p>}
               </div>
 
               <div>

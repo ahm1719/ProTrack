@@ -82,8 +82,21 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
   // Sort dates descending
   const sortedDates = Object.keys(logsByDate).sort().reverse();
 
-  // Sort incomplete tasks to top for selection
-  const sortedTasks = [...tasks].sort((a, b) => a.status === Status.DONE ? 1 : -1);
+  // Sort tasks: Active first (by due date asc), then Completed/Archived (by due date desc)
+  const sortedTasks = [...tasks].sort((a, b) => {
+    const aIsComplete = a.status === Status.DONE || a.status === Status.ARCHIVED;
+    const bIsComplete = b.status === Status.DONE || b.status === Status.ARCHIVED;
+
+    if (aIsComplete && !bIsComplete) return 1;
+    if (!aIsComplete && bIsComplete) return -1;
+    
+    // If both active, sort by due date ascending (older first)
+    if (!aIsComplete && !bIsComplete) {
+       return a.dueDate.localeCompare(b.dueDate);
+    }
+    // If both complete, sort by due date descending (newest first)
+    return b.dueDate.localeCompare(a.dueDate);
+  });
 
   return (
     <div className="space-y-6 h-full flex flex-col">

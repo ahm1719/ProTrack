@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Task, Status, Priority } from '../types';
-import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight } from 'lucide-react';
+import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight, Archive } from 'lucide-react';
 
 interface TaskCardProps {
   task: Task;
@@ -40,9 +40,12 @@ const TaskCard: React.FC<TaskCardProps> = ({
       case Status.IN_PROGRESS: return 'bg-blue-500 text-white';
       case Status.NOT_STARTED: return 'bg-slate-200 text-slate-600';
       case Status.WAITING: return 'bg-amber-400 text-white';
+      case Status.ARCHIVED: return 'bg-slate-500 text-white';
       default: return 'bg-slate-200 text-slate-600';
     }
   };
+
+  const isCompleted = task.status === Status.DONE || task.status === Status.ARCHIVED;
 
   const handleSubmitUpdate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +56,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-300 hover:shadow-md ${task.status === Status.DONE ? 'opacity-75' : ''}`}>
+    <div className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-300 hover:shadow-md ${isCompleted ? 'opacity-60 bg-slate-50' : ''}`}>
       <div className="p-5">
         <div className="flex justify-between items-start mb-3">
           <div className="flex flex-wrap gap-2 items-center">
@@ -107,7 +110,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
           </div>
         </div>
 
-        <h3 className="text-lg font-semibold text-slate-800 mb-2 leading-tight">
+        <h3 className={`text-lg font-semibold text-slate-800 mb-2 leading-tight ${isCompleted ? 'line-through text-slate-500' : ''}`}>
           {task.description}
         </h3>
 
@@ -118,7 +121,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
               <span>{task.dueDate}</span>
             </div>
             <div className="flex items-center gap-1">
-               {task.status === Status.DONE ? <CheckCircle2 size={14} className="text-emerald-500"/> : task.status === Status.WAITING ? <Hourglass size={14} className="text-amber-500"/> : <Clock size={14} />}
+               {task.status === Status.DONE ? <CheckCircle2 size={14} className="text-emerald-500"/> : 
+                task.status === Status.ARCHIVED ? <Archive size={14} className="text-slate-500"/> :
+                task.status === Status.WAITING ? <Hourglass size={14} className="text-amber-500"/> : 
+                <Clock size={14} />}
                <span>{task.updates.length} updates</span>
             </div>
           </div>
