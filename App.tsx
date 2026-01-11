@@ -5,6 +5,7 @@ import DailyJournal from './components/DailyJournal';
 import UserManual from './components/UserManual';
 import ObservationsLog from './components/ObservationsLog';
 import Settings from './components/Settings';
+import AIChat from './components/AIChat';
 import { generateWeeklySummary } from './services/geminiService';
 import { initFirebase, subscribeToData, saveDataToCloud } from './services/firebaseService';
 import { 
@@ -946,6 +947,9 @@ const App: React.FC = () => {
             </div>
         </div>
       </div>
+      
+      {/* AI Chatbot Overlay */}
+      <AIChat tasks={tasks} logs={logs} />
     </div>
   )};
 
@@ -1204,8 +1208,9 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* AI Chatbot Overlay */}
+      <AIChat tasks={tasks} logs={logs} />
     </div>
-  );
-}
+  )};
 
 export default App;

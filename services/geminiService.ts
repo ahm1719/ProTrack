@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { Task, DailyLog } from "../types";
+import { Task, DailyLog, ChatMessage } from "../types";
 
 const getStartOfWeek = (date: Date) => {
   const d = new Date(date);
@@ -102,5 +102,80 @@ export const generateWeeklySummary = async (tasks: Task[], logs: DailyLog[]): Pr
       throw error;
     }
     throw new Error("AI Service Error: " + (error.message || "Unknown error"));
+  }
+};
+
+export const chatWithAI = async (
+  history: ChatMessage[], 
+  newMessage: string, 
+  tasks: Task[], 
+  logs: DailyLog[]
+): Promise<string> => {
+  try {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      throw new Error("API Key is missing. Please go to Settings.");
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+
+    // Build a comprehensive context of the current state
+    // We send this as the "System Instruction" so the model knows the current world state.
+    const taskContext = tasks.map(t => 
+      `[${t.displayId}] ${t.description} (Status: ${t.status}, Due: ${t.dueDate}, Priority: ${t.priority}, Updates: ${t.updates.length})`
+    ).join('\n');
+
+    const logContext = logs.slice(0, 50).map(l => { // Limit to last 50 logs to save context
+       const t = tasks.find(task => task.id === l.taskId);
+       return `[${l.date}] on ${t?.displayId || 'Unknown'}: ${l.content}`;
+    }).join('\n');
+
+    const systemInstruction = `
+      You are ProTrack AI, a helpful and intelligent project management assistant.
+      You have access to the user's live task board and journal logs.
+      
+      CURRENT DATE: ${new Date().toLocaleDateString()}
+      
+      ALL TASKS (Active & Completed):
+      ${taskContext}
+
+      RECENT JOURNAL LOGS:
+      ${logContext}
+
+      RULES:
+      1. Answer questions based specifically on the data provided above.
+      2. If asked about deadlines, check the 'Due' field.
+      3. If asked about progress, check the 'Updates' count and Status.
+      4. Be concise and professional.
+      5. If you don't know something, say you don't see it in the records.
+    `;
+
+    // Convert internal message format to Gemini API format
+    const contents = history.map(msg => ({
+      role: msg.role,
+      parts: [{ text: msg.text }]
+    }));
+
+    // Add the new user message
+    contents.push({
+      role: 'user',
+      parts: [{ text: newMessage }]
+    });
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: contents,
+      config: {
+        systemInstruction: systemInstruction,
+        thinkingConfig: { thinkingBudget: 0 }
+      }
+    });
+
+    return response.text || "I didn't get a response.";
+
+  } catch (error: any) {
+    console.error("Chat Error:", error);
+    if (error.message.includes("API Key is missing")) throw error;
+    throw new Error("Failed to chat: " + (error.message || "Unknown error"));
   }
 };

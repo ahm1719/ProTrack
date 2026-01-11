@@ -54,6 +54,13 @@ export interface Observation {
   images?: string[];
 }
 
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'model';
+  text: string;
+  timestamp: number;
+}
+
 export interface FirebaseConfig {
   apiKey: string;
   authDomain: string;
