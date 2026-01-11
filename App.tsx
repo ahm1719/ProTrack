@@ -169,8 +169,13 @@ function App() {
                return t;
             });
             setTasks(migratedTasks);
+            // CRITICAL FIX: Persist incoming cloud data to LocalStorage immediately
+            localStorage.setItem('protrack_tasks', JSON.stringify(migratedTasks));
           }
-          if (remoteData.logs) setLogs(remoteData.logs);
+          if (remoteData.logs) {
+            setLogs(remoteData.logs);
+            localStorage.setItem('protrack_logs', JSON.stringify(remoteData.logs));
+          }
           if (remoteData.observations) {
             // Apply migration on incoming remote data as well if needed
             const migratedObs = remoteData.observations.map((o: any) => ({
@@ -178,6 +183,7 @@ function App() {
               status: o.status || ObservationStatus.NEW
             }));
             setObservations(migratedObs);
+            localStorage.setItem('protrack_observations', JSON.stringify(migratedObs));
           }
         });
       } catch (error) {
@@ -233,14 +239,19 @@ function App() {
                return t;
             });
              setTasks(migratedTasks);
+             localStorage.setItem('protrack_tasks', JSON.stringify(migratedTasks));
           }
-          if (remoteData.logs) setLogs(remoteData.logs);
+          if (remoteData.logs) {
+             setLogs(remoteData.logs);
+             localStorage.setItem('protrack_logs', JSON.stringify(remoteData.logs));
+          }
            if (remoteData.observations) {
             const migratedObs = remoteData.observations.map((o: any) => ({
               ...o,
               status: o.status || ObservationStatus.NEW
             }));
             setObservations(migratedObs);
+            localStorage.setItem('protrack_observations', JSON.stringify(migratedObs));
           }
       });
       // Also push current local data to ensure cloud has something if it's new
@@ -872,241 +883,6 @@ function App() {
           )}
         </div>
       </div>
-    </div>
-  );
-
-  const renderReport = () => (
-    <div className="space-y-6 max-w-4xl mx-auto animate-fade-in">
-      <div className="text-center space-y-2 mb-8">
-        <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-purple-200">
-          <Sparkles className="text-white" size={32} />
-        </div>
-        <h2 className="text-2xl font-bold text-slate-800">Weekly AI Summary</h2>
-        <p className="text-slate-500">Generate a comprehensive progress report from your tracked tasks and logs.</p>
-      </div>
-
-      {!summary && (
-        <div className="flex justify-center">
-          <button 
-            onClick={handleGenerateSummary}
-            disabled={isGenerating}
-            className="group relative flex items-center gap-3 bg-slate-900 text-white px-8 py-4 rounded-full font-semibold hover:bg-slate-800 transition-all shadow-xl hover:shadow-2xl disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-             {isGenerating ? (
-               <>
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Analyzing Progress...
-               </>
-             ) : (
-               <>
-                <Sparkles size={20} className="text-yellow-400 group-hover:scale-110 transition-transform" />
-                Generate Report
-               </>
-             )}
-          </button>
-        </div>
-      )}
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-lg flex items-center gap-2">
-          <AlertCircle size={18} />
-          {error}
-        </div>
-      )}
-
-      {summary && (
-        <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
-          <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex justify-between items-center">
-             <h3 className="font-semibold text-slate-700">Generated Report</h3>
-             <div className="flex gap-2">
-               <button onClick={handleGenerateSummary} className="text-xs font-medium text-indigo-600 hover:text-indigo-800">
-                 Regenerate
-               </button>
-             </div>
-          </div>
-          <div className="p-8 prose prose-slate max-w-none">
-            {summary.split('\n').map((line, i) => {
-              if (line.startsWith('## ')) return <h2 key={i} className="text-xl font-bold mt-6 mb-3 text-slate-800">{line.replace('## ', '')}</h2>;
-              if (line.startsWith('### ')) return <h3 key={i} className="text-lg font-bold mt-4 mb-2 text-slate-700">{line.replace('### ', '')}</h3>;
-              if (line.startsWith('**')) return <strong key={i} className="block mt-4 mb-1 text-slate-800">{line.replace(/\*\*/g, '')}</strong>;
-              if (line.startsWith('- ')) return <li key={i} className="ml-4 text-slate-600 mb-1">{line.replace('- ', '')}</li>;
-              if (line.match(/^\d\./)) return <div key={i} className="font-semibold mt-4 text-indigo-900">{line}</div>
-              return <p key={i} className="text-slate-600 mb-2 leading-relaxed">{line}</p>;
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  return (
-    <div className="min-h-screen flex bg-slate-50 font-sans text-slate-900">
-      
-      {/* Sidebar Navigation (Desktop) */}
-      <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-200 fixed h-full z-10">
-        <div className="p-6 border-b border-slate-100">
-          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">
-            ProTrack AI
-          </h1>
-        </div>
-        <nav className="flex-1 p-4 space-y-2">
-          <button 
-            onClick={() => setCurrentView(ViewMode.DASHBOARD)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === ViewMode.DASHBOARD ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-500 hover:bg-slate-50'}`}
-          >
-            <LayoutDashboard size={20} /> Dashboard
-          </button>
-          <button 
-            onClick={() => { setJournalTaskId(''); setCurrentView(ViewMode.TASKS); }}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === ViewMode.TASKS ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-500 hover:bg-slate-50'}`}
-          >
-            <ListTodo size={20} /> Tasks & Journal
-          </button>
-          <button 
-            onClick={() => setCurrentView(ViewMode.REPORT)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === ViewMode.REPORT ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-500 hover:bg-slate-50'}`}
-          >
-            <Sparkles size={20} /> Weekly Report
-          </button>
-           <button 
-            onClick={() => setCurrentView(ViewMode.OBSERVATIONS)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === ViewMode.OBSERVATIONS ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-500 hover:bg-slate-50'}`}
-          >
-            <StickyNote size={20} /> Observations
-          </button>
-           <button 
-            onClick={() => setCurrentView(ViewMode.SETTINGS)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === ViewMode.SETTINGS ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-500 hover:bg-slate-50'}`}
-          >
-            <SettingsIcon size={20} /> Settings & Data
-          </button>
-          <button 
-            onClick={() => setCurrentView(ViewMode.HELP)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === ViewMode.HELP ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-slate-500 hover:bg-slate-50'}`}
-          >
-            <HelpCircle size={20} /> User Manual
-          </button>
-        </nav>
-        <div className="p-4 border-t border-slate-100">
-           <button onClick={openInNewTab} className="flex items-center gap-2 text-xs font-medium text-slate-400 hover:text-indigo-600 transition-colors w-full px-4">
-              <ExternalLink size={14} /> Open App in New Tab
-           </button>
-        </div>
-      </aside>
-
-      {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 w-full bg-white border-b border-slate-200 z-20 px-4 py-3 flex justify-between items-center shadow-sm">
-         <h1 className="text-xl font-bold text-indigo-600">ProTrack AI</h1>
-         <div className="flex items-center gap-4">
-             <button onClick={openInNewTab} className="text-slate-400 hover:text-indigo-600">
-               <ExternalLink size={20}/>
-             </button>
-             <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-slate-600">
-               {isMobileMenuOpen ? <X /> : <Menu />}
-             </button>
-         </div>
-      </div>
-
-      {/* Mobile Menu Overlay */}
-      {isMobileMenuOpen && (
-        <div className="fixed inset-0 bg-white z-10 pt-20 px-6 space-y-4 md:hidden animate-in slide-in-from-top-10">
-           <button onClick={() => { setCurrentView(ViewMode.DASHBOARD); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Dashboard</button>
-           <button onClick={() => { setCurrentView(ViewMode.TASKS); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Tasks & Journal</button>
-           <button onClick={() => { setCurrentView(ViewMode.REPORT); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">AI Report</button>
-           <button onClick={() => { setCurrentView(ViewMode.OBSERVATIONS); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Observations</button>
-           <button onClick={() => { setCurrentView(ViewMode.SETTINGS); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">Settings & Data</button>
-           <button onClick={() => { setCurrentView(ViewMode.HELP); setIsMobileMenuOpen(false); }} className="w-full text-left py-3 border-b border-slate-100 text-lg font-medium">User Manual</button>
-        </div>
-      )}
-
-      {/* Main Content Area */}
-      <main className="flex-1 md:ml-64 p-4 md:p-8 mt-14 md:mt-0 transition-all max-w-[1600px] mx-auto w-full">
-        {currentView === ViewMode.DASHBOARD && renderDashboard()}
-        {currentView === ViewMode.TASKS && renderTasksAndJournal()}
-        {currentView === ViewMode.JOURNAL && <DailyJournal tasks={tasks} logs={logs} onAddLog={addDailyLog} onUpdateTask={updateTaskFields} initialTaskId={journalTaskId} />}
-        {currentView === ViewMode.REPORT && renderReport()}
-        {currentView === ViewMode.OBSERVATIONS && <ObservationsLog observations={observations} onAddObservation={addObservation} onEditObservation={editObservation} onDeleteObservation={deleteObservation} />}
-        {currentView === ViewMode.SETTINGS && <Settings tasks={tasks} logs={logs} observations={observations} onImportData={handleImportData} onSyncConfigUpdate={handleSyncConfigUpdate} isSyncEnabled={isSyncEnabled} />}
-        {currentView === ViewMode.HELP && <UserManual />}
-      </main>
-
-      {/* Task Modal */}
-      {isTaskModalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-800">{editingTask ? 'Edit Task' : 'Create New Task'}</h3>
-              <button onClick={() => setIsTaskModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
-            </div>
-            <form onSubmit={handleCreateOrUpdateTask} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Source</label>
-                  <input name="source" defaultValue={editingTask?.source || getCurrentCW()} placeholder="e.g. CW02" className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900" required />
-                </div>
-                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Project ID</label>
-                  <input 
-                    list="projectIds" 
-                    name="projectId" 
-                    value={modalProjectId} 
-                    onChange={handleProjectIdChange}
-                    placeholder="Select or Type Project ID..." 
-                    className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900" 
-                    required
-                  />
-                  <datalist id="projectIds">
-                    {activeProjectIds.map(pid => <option key={pid} value={pid} />)}
-                  </datalist>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Display ID</label>
-                 <input 
-                    name="displayId" 
-                    value={modalDisplayId} 
-                    onChange={(e) => setModalDisplayId(e.target.value)}
-                    placeholder="e.g. P1130-28" 
-                    className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-slate-50 text-slate-900 font-mono" 
-                    required 
-                  />
-                  {!editingTask && <p className="text-[10px] text-indigo-500 mt-1">Auto-generated based on Project ID (Editable)</p>}
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Description</label>
-                <textarea name="description" defaultValue={editingTask?.description} rows={3} className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900" required />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Due Date</label>
-                  <input type="date" name="dueDate" defaultValue={editingTask?.dueDate} className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900" required />
-                </div>
-                <div>
-                   <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Priority</label>
-                   <select name="priority" defaultValue={editingTask?.priority || Priority.MEDIUM} className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900">
-                     <option value={Priority.HIGH}>High</option>
-                     <option value={Priority.MEDIUM}>Medium</option>
-                     <option value={Priority.LOW}>Low</option>
-                   </select>
-                </div>
-              </div>
-              <div>
-                 <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Status</label>
-                 <select name="status" defaultValue={editingTask?.status || Status.NOT_STARTED} className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white text-slate-900">
-                   {Object.values(Status).map(s => <option key={s} value={s}>{s}</option>)}
-                 </select>
-              </div>
-              
-              <div className="pt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsTaskModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-medium">Cancel</button>
-                <button type="submit" className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium">Save Task</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

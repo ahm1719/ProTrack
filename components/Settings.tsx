@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, Upload, Cloud, Check, Wifi, WifiOff, AlertTriangle, RefreshCw, Key, Eye, EyeOff } from 'lucide-react';
+import { Download, Upload, Cloud, Check, Wifi, WifiOff, AlertTriangle, RefreshCw, Key, Eye, EyeOff, Copy, Smartphone } from 'lucide-react';
 import { Task, DailyLog, Observation, FirebaseConfig } from '../types';
 import { initFirebase } from '../services/firebaseService';
 
@@ -31,6 +31,7 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
   const [configJson, setConfigJson] = useState(JSON.stringify(PRECONFIGURED_FIREBASE, null, 2));
   const [configError, setConfigError] = useState<string | null>(null);
   const [needsReload, setNeedsReload] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Gemini Key State
   const [geminiKey, setGeminiKey] = useState('');
@@ -108,7 +109,7 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
       // Quote unquoted keys (basic attempt)
       cleanJson = cleanJson.replace(/(\s*?{\s*?|\s*?,\s*?)(['"])?([a-zA-Z0-9_]+)(['"])?:/g, '$1"$3":');
       // Fix single quotes to double quotes
-      cleanJson = cleanJson.replace(/'/g, '"');
+      cleanJson = cleanJson.replace(/(\s*)'([^']*)'(\s*)/g, '$1"$2"$3');
 
       const config = JSON.parse(cleanJson) as FirebaseConfig;
       
@@ -136,6 +137,13 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
     localStorage.removeItem('protrack_firebase_config');
     onSyncConfigUpdate(null);
     setConfigJson(JSON.stringify(PRECONFIGURED_FIREBASE, null, 2));
+  };
+
+  const copyConfigForMobile = () => {
+      navigator.clipboard.writeText(configJson).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+      });
   };
 
   return (
@@ -217,6 +225,15 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
           </div>
 
           <div className="p-6 space-y-4">
+             {/* Diagnostic Info */}
+             <div className="flex items-center justify-between text-xs bg-slate-50 p-2 rounded border border-slate-100">
+                <span className="text-slate-500">Status Check:</span>
+                <div className="flex gap-3">
+                    <span className="font-mono">Tasks: {tasks.length}</span>
+                    <span className="font-mono">Logs: {logs.length}</span>
+                </div>
+             </div>
+
              {!isSyncEnabled ? (
                <>
                  <div className="text-sm text-slate-600 bg-blue-50 p-4 rounded-xl border border-blue-100">
@@ -254,20 +271,49 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
                  </button>
                </>
              ) : (
-               <div className="text-center py-6 space-y-4">
-                  <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600">
-                    <Check size={32} strokeWidth={3} />
+               <div className="space-y-6">
+                  <div className="text-center py-2 space-y-4">
+                      <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600">
+                        <Check size={32} strokeWidth={3} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-slate-800">Synchronization Active</h3>
+                        <p className="text-sm text-slate-500">Your data is automatically backing up to the cloud.</p>
+                      </div>
+                      <button 
+                        onClick={handleDisconnect}
+                        className="text-sm text-red-500 hover:text-red-700 hover:underline"
+                      >
+                        Disconnect & Stop Sync
+                      </button>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-800">Synchronization Active</h3>
-                    <p className="text-sm text-slate-500">Your data is automatically backing up to the cloud.</p>
+
+                  {/* Mobile Setup Helper */}
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                     <div className="flex justify-between items-center mb-2">
+                        <h4 className="font-bold text-slate-700 text-sm flex items-center gap-2">
+                            <Smartphone size={16} /> Setup Mobile Sync
+                        </h4>
+                        <button 
+                            onClick={copyConfigForMobile}
+                            className="text-xs bg-white border border-slate-300 hover:border-indigo-500 px-3 py-1 rounded-md flex items-center gap-1 transition-colors"
+                        >
+                            {copied ? <Check size={12} className="text-emerald-500"/> : <Copy size={12}/>}
+                            {copied ? 'Copied!' : 'Copy Config'}
+                        </button>
+                     </div>
+                     <p className="text-xs text-slate-500 mb-2">
+                         Paste this configuration into the Settings page on your mobile device to sync data.
+                     </p>
+                     <div className="relative">
+                         <div className="absolute inset-0 bg-slate-100/50 backdrop-blur-[1px] flex items-center justify-center z-10">
+                            <span className="text-xs font-semibold text-slate-500 bg-white px-2 py-1 rounded shadow-sm border border-slate-200">Hidden for security (Click Copy above)</span>
+                         </div>
+                         <pre className="text-[10px] bg-slate-800 text-slate-400 p-2 rounded h-16 overflow-hidden">
+                             {configJson}
+                         </pre>
+                     </div>
                   </div>
-                  <button 
-                    onClick={handleDisconnect}
-                    className="text-sm text-red-500 hover:text-red-700 hover:underline"
-                  >
-                    Disconnect & Stop Sync
-                  </button>
                </div>
              )}
           </div>
