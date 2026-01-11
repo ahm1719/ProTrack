@@ -85,6 +85,38 @@ const getCurrentCW = (): string => {
   return `CW${weekNumber.toString().padStart(2, '0')}`;
 };
 
+// --- LOGO COMPONENT ---
+const Logo = () => (
+  <div className="flex items-center gap-2 select-none">
+    <div className="relative w-8 h-8 flex items-center justify-center">
+       {/* Background Glow */}
+       <div className="absolute inset-0 bg-cyan-400 rounded-full blur-md opacity-20"></div>
+       {/* Icon */}
+       <svg viewBox="0 0 24 24" fill="none" className="w-9 h-9 relative z-10 drop-shadow-sm">
+         <defs>
+           <linearGradient id="iconGradient" x1="0" y1="0" x2="1" y2="1">
+             <stop offset="0%" stopColor="#06b6d4" /> {/* Cyan 500 */}
+             <stop offset="100%" stopColor="#3b82f6" /> {/* Blue 500 */}
+           </linearGradient>
+         </defs>
+         <path d="M12 2C7.58 2 4 5.58 4 10C4 15 12 22 12 22C12 22 20 15 20 10C20 5.58 16.42 2 12 2Z" fill="url(#iconGradient)" />
+         {/* Brain circuit lines */}
+         <path d="M12 6V8" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+         <path d="M12 14V16" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+         <path d="M9 11H8" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+         <path d="M16 11H15" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+         <path d="M9.5 8.5L8.5 7.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+         <path d="M14.5 8.5L15.5 7.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+         <circle cx="12" cy="11" r="2.5" stroke="white" strokeWidth="1.5" />
+       </svg>
+    </div>
+    <div className="flex items-baseline tracking-tight">
+      <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-500 to-blue-600">Track</span>
+      <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-lime-500 to-emerald-500">Pro</span>
+    </div>
+  </div>
+);
+
 function App() {
   // --- STATE ---
   const [tasks, setTasks] = useState<Task[]>(() => {
@@ -910,8 +942,8 @@ function App() {
       {/* Sidebar - Desktop */}
       <aside className="hidden md:flex w-64 flex-col bg-white border-r border-slate-200 shadow-sm z-20 transition-all">
         <div className="p-6 border-b border-slate-100 flex flex-col gap-2">
-           <img src="/logo.png" alt="TrackPro" className="h-10 w-auto object-contain self-start" />
-           <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Project OS v16</p>
+           <Logo />
+           <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase pl-1">Project OS v16</p>
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
@@ -976,8 +1008,8 @@ function App() {
 
       {/* Mobile Header */}
       <div className="md:hidden absolute top-0 left-0 right-0 bg-white border-b border-slate-200 p-4 z-30 flex items-center justify-between">
-         <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="TrackPro" className="h-8 w-auto" />
+         <div className="scale-90 origin-left">
+            <Logo />
          </div>
          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-slate-600 bg-slate-100 rounded-lg">
            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
