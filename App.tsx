@@ -40,6 +40,8 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
+const BUILD_VERSION = "V1";
+
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
   taskPriorities: Object.values(Priority),
@@ -527,7 +529,12 @@ const App: React.FC = () => {
            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-indigo-200 shadow-lg">
              P
            </div>
-           {isSidebarOpen && <span className="font-bold text-xl tracking-tight text-slate-800">ProTrack<span className="text-indigo-600">AI</span></span>}
+           {isSidebarOpen && (
+             <div className="flex flex-col">
+                <span className="font-bold text-xl tracking-tight text-slate-800 leading-none">ProTrack<span className="text-indigo-600">AI</span></span>
+                <span className="text-[10px] text-slate-400 font-medium tracking-wide mt-0.5">Build {BUILD_VERSION}</span>
+             </div>
+           )}
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
