@@ -179,7 +179,8 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewMode>(ViewMode.DASHBOARD);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [journalTaskId, setJournalTaskId] = useState<string>(''); 
+  const [journalTaskId, setJournalTaskId] = useState<string>('');
+  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
   
   // Modal State
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -681,6 +682,7 @@ const App: React.FC = () => {
                                 onEditUpdate={editTaskUpdate}
                                 onDeleteUpdate={deleteTaskUpdate}
                                 onUpdateTask={updateTaskFields}
+                                autoExpand={task.id === highlightedTaskId}
                              />
                         ))}
                     </div>
@@ -732,6 +734,7 @@ const App: React.FC = () => {
                                         onEditUpdate={editTaskUpdate}
                                         onDeleteUpdate={deleteTaskUpdate}
                                         onUpdateTask={updateTaskFields}
+                                        autoExpand={task.id === highlightedTaskId}
                                      />
                                    ))
                                )}
@@ -767,6 +770,7 @@ const App: React.FC = () => {
                                     onEditUpdate={editTaskUpdate}
                                     onDeleteUpdate={deleteTaskUpdate}
                                     onUpdateTask={updateTaskFields}
+                                    autoExpand={task.id === highlightedTaskId}
                                 />
                             ))
                         )}
@@ -794,6 +798,7 @@ const App: React.FC = () => {
                             onDelete={deleteTask}
                             onAddUpdate={addUpdateToTask}
                             isReadOnly={true}
+                            autoExpand={task.id === highlightedTaskId}
                          />
                      ))}
                   </div>
@@ -807,7 +812,9 @@ const App: React.FC = () => {
   const renderDashboard = () => {
     const todayStr = getLocalISODate(new Date());
     const overdueTasks = tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate < todayStr);
-    const dueTodayTasks = tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate === todayStr);
+    
+    // CHANGED: Filter Due Today to only show Priority.HIGH tasks
+    const dueTodayTasks = tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate === todayStr && t.priority === Priority.HIGH);
     
     const countNotStarted = tasks.filter(t => t.status === Status.NOT_STARTED).length;
     const countInProgress = tasks.filter(t => t.status === Status.IN_PROGRESS).length;
@@ -855,35 +862,28 @@ const App: React.FC = () => {
              </div>
            </div>
 
-           {/* Observations Overview */}
-           <div className="bg-gradient-to-br from-fuchsia-600 to-purple-600 rounded-2xl p-5 text-white shadow-lg shadow-purple-200">
-             <div className="flex justify-between items-center mb-3">
-               <h3 className="font-semibold text-purple-100 text-sm">Observations Tracker</h3>
-               <StickyNote className="opacity-50" size={20} />
-             </div>
-             <div className="flex justify-between gap-2 text-center h-full max-h-[60px]">
-                 <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex-1 flex flex-col justify-center">
-                    <div className="flex items-center justify-center gap-1 mb-1">
-                        <Circle size={10} className="text-white fill-white"/>
-                        <span className="text-[10px] text-purple-200 uppercase">New</span>
-                    </div>
-                    <span className="text-xl font-bold leading-none">{obsNew}</span>
-                 </div>
-                 <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex-1 flex flex-col justify-center">
-                    <div className="flex items-center justify-center gap-1 mb-1">
-                        <Clock size={10} className="text-white"/>
-                        <span className="text-[10px] text-purple-200 uppercase">WIP</span>
-                    </div>
-                    <span className="text-xl font-bold leading-none">{obsWip}</span>
-                 </div>
-                 <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex-1 flex flex-col justify-center">
-                    <div className="flex items-center justify-center gap-1 mb-1">
-                        <CheckCircle2 size={10} className="text-white"/>
-                        <span className="text-[10px] text-purple-200 uppercase">Resolved</span>
-                    </div>
-                    <span className="text-xl font-bold leading-none">{obsResolved}</span>
-                 </div>
-             </div>
+           {/* CHANGED: Simplified Observations Overview */}
+           <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-slate-800 text-sm">Observations</h3>
+                <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                  <StickyNote size={18} />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4 divide-x divide-slate-100">
+                <div className="text-center px-2">
+                  <div className="text-2xl font-bold text-slate-800">{obsNew}</div>
+                  <div className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-wide">New</div>
+                </div>
+                <div className="text-center px-2">
+                  <div className="text-2xl font-bold text-slate-800">{obsWip}</div>
+                  <div className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-wide">In Progress</div>
+                </div>
+                <div className="text-center px-2">
+                  <div className="text-2xl font-bold text-slate-800">{obsResolved}</div>
+                  <div className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-wide">Resolved</div>
+                </div>
+              </div>
            </div>
          </div>
 
@@ -936,7 +936,7 @@ const App: React.FC = () => {
                  </div>
                  <div className="divide-y divide-red-50">
                      {overdueTasks.map(t => (
-                         <div key={t.id} className="p-4 flex justify-between items-start cursor-pointer hover:bg-red-50/50 transition-colors" onClick={() => { setJournalTaskId(t.id); setCurrentView(ViewMode.TASKS); }}>
+                         <div key={t.id} className="p-4 flex justify-between items-start cursor-pointer hover:bg-red-50/50 transition-colors" onClick={() => { setJournalTaskId(t.id); setHighlightedTaskId(t.id); setCurrentView(ViewMode.TASKS); }}>
                              <div className="flex flex-col gap-2 w-full">
                                  {/* Properties Row */}
                                  <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -964,13 +964,13 @@ const App: React.FC = () => {
                  <div className="bg-amber-50 px-6 py-4 border-b border-amber-100 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <CalendarDays size={18} className="text-amber-600"/>
-                        <h3 className="font-bold text-amber-900">Due Today</h3>
+                        <h3 className="font-bold text-amber-900">Due Today (High Priority)</h3>
                     </div>
                     <span className="bg-amber-200 text-amber-800 text-xs font-bold px-2 py-1 rounded-full">{dueTodayTasks.length}</span>
                  </div>
                   <div className="divide-y divide-amber-50">
                      {dueTodayTasks.map(t => (
-                         <div key={t.id} className="p-4 flex justify-between items-start cursor-pointer hover:bg-amber-50/50 transition-colors" onClick={() => { setJournalTaskId(t.id); setCurrentView(ViewMode.TASKS); }}>
+                         <div key={t.id} className="p-4 flex justify-between items-start cursor-pointer hover:bg-amber-50/50 transition-colors" onClick={() => { setJournalTaskId(t.id); setHighlightedTaskId(t.id); setCurrentView(ViewMode.TASKS); }}>
                              <div className="flex flex-col gap-2 w-full">
                                  {/* Properties Row */}
                                  <div className="flex flex-wrap items-center gap-2 text-xs">

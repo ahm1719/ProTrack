@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Task, Status, Priority } from '../types';
 import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight, Archive, X, Save } from 'lucide-react';
 
@@ -14,6 +14,7 @@ interface TaskCardProps {
   isReadOnly?: boolean;
   onNavigate?: () => void;
   onUpdateTask?: (id: string, fields: Partial<Task>) => void; // New prop for generic updates
+  autoExpand?: boolean;
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ 
@@ -27,10 +28,12 @@ const TaskCard: React.FC<TaskCardProps> = ({
   allowDelete = true, 
   isReadOnly = false,
   onNavigate,
-  onUpdateTask
+  onUpdateTask,
+  autoExpand = false
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [newUpdate, setNewUpdate] = useState('');
+  const cardRef = useRef<HTMLDivElement>(null);
   
   // State for editing existing updates
   const [editingUpdateId, setEditingUpdateId] = useState<string | null>(null);
@@ -40,6 +43,16 @@ const TaskCard: React.FC<TaskCardProps> = ({
   // State for inline field editing
   const [editingField, setEditingField] = useState<string | null>(null);
   const [tempValue, setTempValue] = useState('');
+
+  useEffect(() => {
+    if (autoExpand) {
+      setIsExpanded(true);
+      // Slight delay to ensure layout is ready
+      setTimeout(() => {
+        cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    }
+  }, [autoExpand]);
 
   const getPriorityColor = (p: Priority) => {
     switch (p) {
@@ -149,7 +162,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-300 hover:shadow-md ${isCompleted ? 'opacity-60 bg-slate-50' : ''}`}>
+    <div ref={cardRef} className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-300 hover:shadow-md ${isCompleted ? 'opacity-60 bg-slate-50' : ''} ${autoExpand ? 'ring-2 ring-indigo-500 shadow-lg' : ''}`}>
       <div className="p-5">
         <div className="flex justify-between items-start mb-3">
           <div className="flex flex-wrap gap-2 items-center">
@@ -357,6 +370,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     value={newUpdate}
                     onChange={(e) => setNewUpdate(e.target.value)}
                     className="w-full pl-4 pr-10 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white text-slate-900"
+                    autoFocus={autoExpand}
                   />
                   <button
                     type="submit"
