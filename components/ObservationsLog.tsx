@@ -216,23 +216,25 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({ observations, onAddOb
                       <option key={s} value={s}>{s}</option>
                       ))}
                   </select>
-                  <div className="flex-1 flex gap-2 relative">
-                      <input
-                          type="text"
-                          value={content}
-                          onChange={(e) => setContent(e.target.value)}
-                          onPaste={handlePaste}
-                          placeholder="Describe observation... (Paste images here)"
-                          className="flex-1 p-2 pr-10 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
-                      />
-                      <button 
-                        type="button" 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="absolute right-[110px] top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 p-1"
-                        title="Attach Image"
-                      >
-                        <ImageIcon size={18} />
-                      </button>
+                  <div className="flex-1 flex gap-2">
+                      <div className="relative flex-1">
+                        <input
+                            type="text"
+                            value={content}
+                            onChange={(e) => setContent(e.target.value)}
+                            onPaste={handlePaste}
+                            placeholder="Describe observation... (Paste images here)"
+                            className="w-full p-2 pr-10 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
+                        />
+                        <button 
+                            type="button" 
+                            onClick={() => fileInputRef.current?.click()}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 p-1"
+                            title="Attach Image"
+                        >
+                            <ImageIcon size={18} />
+                        </button>
+                      </div>
                       <input 
                         type="file" 
                         ref={fileInputRef} 

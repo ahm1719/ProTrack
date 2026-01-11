@@ -400,6 +400,18 @@ function App() {
     updateTasks(updatedTasks);
   };
 
+  const deleteTaskUpdate = (taskId: string, updateId: string) => {
+    if (window.confirm('Delete this update?')) {
+        const updatedTasks = tasks.map(t => {
+            if (t.id === taskId) {
+                return { ...t, updates: t.updates.filter(u => u.id !== updateId) };
+            }
+            return t;
+        });
+        updateTasks(updatedTasks);
+    }
+  };
+
   const addDailyLog = (logData: Omit<DailyLog, 'id'>) => {
     const newLog = { ...logData, id: uuidv4() };
     const updatedLogs = [...logs, newLog];
@@ -569,15 +581,15 @@ function App() {
            </div>
         </div>
 
-        {/* Top Level Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Active Task Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
           <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg shadow-indigo-200">
             <div className="flex justify-between items-center mb-3">
               <h3 className="font-semibold text-indigo-100 text-sm">Active Tasks This Week</h3>
               <ListTodo className="opacity-50" size={20} />
             </div>
             {/* Adjusted Grid to fit Archived */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-5 gap-2">
                 <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex flex-col justify-between">
                     <span className="text-[10px] text-indigo-200 uppercase tracking-wide truncate">Not Started</span>
                     <span className="text-xl font-bold">{countNotStarted}</span>
@@ -600,38 +612,22 @@ function App() {
                 </div>
             </div>
           </div>
-
-          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm relative overflow-hidden group hover:border-red-300 transition-colors">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-slate-500">Overdue Tasks</h3>
-              <AlertTriangle className={`text-red-500 ${overdueTasks.length > 0 ? 'animate-pulse' : ''}`} />
-            </div>
-            <p className={`text-4xl font-bold ${overdueTasks.length > 0 ? 'text-red-600' : 'text-slate-800'}`}>
-              {overdueTasks.length}
-            </p>
-            <p className="text-xs text-slate-400 mt-2">Immediate attention required</p>
-            {overdueTasks.length > 0 && <div className="absolute bottom-0 left-0 w-full h-1 bg-red-500"/>}
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:border-amber-300 transition-colors">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-slate-500">Due Today</h3>
-              <CalendarDays className="text-amber-500" />
-            </div>
-            <p className="text-4xl font-bold text-slate-800">{dueTodayTasks.length}</p>
-            <p className="text-xs text-slate-400 mt-2">Deadlines expiring today</p>
-          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Column: Priority & Deadlines */}
           <div className="lg:col-span-2 space-y-6">
-             {/* Urgent Tasks Section - Focused on Overdue */}
+             {/* Urgent Tasks Section - Combined Overdue */}
              {overdueTasks.length > 0 && (
                <div className="bg-white rounded-2xl border border-red-100 shadow-sm overflow-hidden">
-                 <div className="bg-red-50 px-6 py-4 border-b border-red-100 flex items-center gap-2">
-                    <AlertTriangle size={18} className="text-red-600"/>
-                    <h3 className="font-bold text-red-900">Attention Needed: Overdue</h3>
+                 <div className="bg-red-50 px-6 py-4 border-b border-red-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <AlertTriangle size={18} className="text-red-600"/>
+                        <h3 className="font-bold text-red-900">Attention Needed: Overdue</h3>
+                    </div>
+                    <span className="bg-red-200 text-red-800 text-xs font-bold px-2 py-1 rounded-full">
+                        {overdueTasks.length} Overdue
+                    </span>
                  </div>
                  <div className="divide-y divide-red-50">
                     {overdueTasks.map(task => (
@@ -657,33 +653,44 @@ function App() {
                </div>
              )}
 
-             {/* Due Today Section */}
+             {/* Due Today Section - Combined & Filtered for High Priority */}
              {dueTodayTasks.length > 0 && (
                <div className="bg-white rounded-2xl border border-amber-100 shadow-sm overflow-hidden">
-                 <div className="bg-amber-50 px-6 py-4 border-b border-amber-100 flex items-center gap-2">
-                    <CalendarDays size={18} className="text-amber-600"/>
-                    <h3 className="font-bold text-amber-900">Actions Due Today</h3>
+                 <div className="bg-amber-50 px-6 py-4 border-b border-amber-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <CalendarDays size={18} className="text-amber-600"/>
+                        <h3 className="font-bold text-amber-900">Actions Due Today</h3>
+                    </div>
+                    <span className="bg-amber-200 text-amber-800 text-xs font-bold px-2 py-1 rounded-full">
+                        {dueTodayTasks.length} Total Due
+                    </span>
                  </div>
                  <div className="divide-y divide-amber-50">
-                    {dueTodayTasks.map(task => (
-                      <div key={task.id} className="p-4 hover:bg-amber-50/50 transition-colors flex items-center justify-between group">
-                         <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                               <span className="text-xs font-mono font-medium text-slate-500">{task.displayId}</span>
-                               <span className="text-[10px] font-bold px-2 py-0.5 rounded text-white bg-amber-500">
-                                 {task.priority}
-                               </span>
+                    {dueTodayTasks.filter(t => t.priority === Priority.HIGH).length > 0 ? (
+                        dueTodayTasks.filter(t => t.priority === Priority.HIGH).map(task => (
+                        <div key={task.id} className="p-4 hover:bg-amber-50/50 transition-colors flex items-center justify-between group">
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-mono font-medium text-slate-500">{task.displayId}</span>
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded text-white bg-red-500">
+                                    HIGH PRIORITY
+                                </span>
+                                </div>
+                                <p className="text-sm font-medium text-slate-800">{task.description}</p>
                             </div>
-                            <p className="text-sm font-medium text-slate-800">{task.description}</p>
-                         </div>
-                         <button 
-                            onClick={() => { setJournalTaskId(task.id); setCurrentView(ViewMode.TASKS); }}
-                            className="text-slate-300 hover:text-indigo-600 p-2"
-                         >
-                            <ArrowRight size={18}/>
-                         </button>
-                      </div>
-                    ))}
+                            <button 
+                                onClick={() => { setJournalTaskId(task.id); setCurrentView(ViewMode.TASKS); }}
+                                className="text-slate-300 hover:text-indigo-600 p-2"
+                            >
+                                <ArrowRight size={18}/>
+                            </button>
+                        </div>
+                        ))
+                    ) : (
+                        <div className="p-6 text-center text-slate-400 italic text-sm">
+                            {dueTodayTasks.length} tasks due today, but no high priority items pending.
+                        </div>
+                    )}
                  </div>
                </div>
              )}
@@ -704,6 +711,7 @@ function App() {
                         onDelete={deleteTask}
                         onAddUpdate={addUpdateToTask}
                         onEditUpdate={editTaskUpdate}
+                        onDeleteUpdate={deleteTaskUpdate}
                         isReadOnly={true}
                         onNavigate={() => {
                             setJournalTaskId(task.id);
@@ -825,6 +833,7 @@ function App() {
                   onDelete={deleteTask}
                   onAddUpdate={addUpdateToTask}
                   onEditUpdate={editTaskUpdate}
+                  onDeleteUpdate={deleteTaskUpdate}
                 />
               ))}
             </div>
@@ -843,6 +852,7 @@ function App() {
                   onDelete={deleteTask}
                   onAddUpdate={addUpdateToTask}
                   onEditUpdate={editTaskUpdate}
+                  onDeleteUpdate={deleteTaskUpdate}
                 />
               ))}
             </div>
@@ -861,6 +871,7 @@ function App() {
                   onDelete={deleteTask}
                   onAddUpdate={addUpdateToTask}
                   onEditUpdate={editTaskUpdate}
+                  onDeleteUpdate={deleteTaskUpdate}
                 />
               ))}
             </div>
@@ -895,6 +906,7 @@ function App() {
                         onDelete={deleteTask}
                         onAddUpdate={addUpdateToTask}
                         onEditUpdate={editTaskUpdate}
+                        onDeleteUpdate={deleteTaskUpdate}
                       />
                     ))}
                  </div>

@@ -9,6 +9,7 @@ interface TaskCardProps {
   onDelete: (id: string) => void;
   onAddUpdate: (id: string, content: string) => void;
   onEditUpdate?: (taskId: string, updateId: string, newContent: string) => void;
+  onDeleteUpdate?: (taskId: string, updateId: string) => void;
   allowDelete?: boolean;
   isReadOnly?: boolean;
   onNavigate?: () => void;
@@ -21,6 +22,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onDelete, 
   onAddUpdate,
   onEditUpdate,
+  onDeleteUpdate,
   allowDelete = true, 
   isReadOnly = false,
   onNavigate 
@@ -242,17 +244,30 @@ const TaskCard: React.FC<TaskCardProps> = ({
                       </div>
                     ) : (
                       <div className="relative">
-                        <div className="p-2 bg-white rounded-lg border border-slate-200 text-slate-700 shadow-sm text-xs group-hover:pr-8">
+                        <div className="p-2 bg-white rounded-lg border border-slate-200 text-slate-700 shadow-sm text-xs group-hover:pr-14">
                           {update.content}
                         </div>
-                        {!isReadOnly && onEditUpdate && (
-                          <button
-                            onClick={() => startEditingUpdate(update)}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-indigo-600"
-                            title="Edit Update"
-                          >
-                            <Edit2 size={12} />
-                          </button>
+                        {!isReadOnly && (
+                          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {onEditUpdate && (
+                                <button
+                                    onClick={() => startEditingUpdate(update)}
+                                    className="text-slate-400 hover:text-indigo-600 p-1"
+                                    title="Edit Update"
+                                >
+                                    <Edit2 size={12} />
+                                </button>
+                            )}
+                            {onDeleteUpdate && (
+                                <button
+                                    onClick={() => onDeleteUpdate(task.id, update.id)}
+                                    className="text-slate-400 hover:text-red-600 p-1"
+                                    title="Delete Update"
+                                >
+                                    <Trash2 size={12} />
+                                </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
