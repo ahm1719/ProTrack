@@ -909,14 +909,9 @@ function App() {
       
       {/* Sidebar - Desktop */}
       <aside className="hidden md:flex w-64 flex-col bg-white border-r border-slate-200 shadow-sm z-20 transition-all">
-        <div className="p-6 flex items-center gap-3 border-b border-slate-100">
-           <div className="bg-indigo-600 p-2 rounded-lg shadow-lg shadow-indigo-200 text-white">
-             <Sparkles size={24} fill="currentColor" />
-           </div>
-           <div>
-             <h1 className="text-xl font-bold text-slate-800 tracking-tight">ProTrack<span className="text-indigo-600">AI</span></h1>
-             <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Project OS v16</p>
-           </div>
+        <div className="p-6 border-b border-slate-100 flex flex-col gap-2">
+           <img src="/logo.png" alt="TrackPro" className="h-10 w-auto object-contain self-start" />
+           <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">Project OS v16</p>
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
@@ -982,10 +977,7 @@ function App() {
       {/* Mobile Header */}
       <div className="md:hidden absolute top-0 left-0 right-0 bg-white border-b border-slate-200 p-4 z-30 flex items-center justify-between">
          <div className="flex items-center gap-2">
-            <div className="bg-indigo-600 p-1.5 rounded-lg text-white">
-              <Sparkles size={18} fill="currentColor" />
-            </div>
-            <span className="font-bold text-slate-800">ProTrack AI</span>
+            <img src="/logo.png" alt="TrackPro" className="h-8 w-auto" />
          </div>
          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-slate-600 bg-slate-100 rounded-lg">
            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
