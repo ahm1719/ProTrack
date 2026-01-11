@@ -29,7 +29,8 @@ import {
   Copy,
   CheckCircle2,
   Circle,
-  Calendar
+  Calendar,
+  Hourglass
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -849,39 +850,81 @@ const App: React.FC = () => {
          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
            {/* Task Overview */}
            <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl p-5 text-white shadow-lg shadow-indigo-200">
-             <div className="flex justify-between items-center mb-3">
+             <div className="flex justify-between items-center mb-4">
                <h3 className="font-semibold text-indigo-100 text-sm">Task Overview</h3>
                <ListTodo className="opacity-50" size={20} />
              </div>
              <div className="grid grid-cols-5 gap-2">
-                 <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex flex-col justify-between"><span className="text-[10px] text-indigo-200 uppercase truncate">Not Started</span><span className="text-xl font-bold">{countNotStarted}</span></div>
-                 <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex flex-col justify-between"><span className="text-[10px] text-indigo-200 uppercase truncate">In Progress</span><span className="text-xl font-bold">{countInProgress}</span></div>
-                 <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex flex-col justify-between"><span className="text-[10px] text-indigo-200 uppercase truncate">Waiting</span><span className="text-xl font-bold">{countWaiting}</span></div>
-                 <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex flex-col justify-between"><span className="text-[10px] text-indigo-200 uppercase truncate">Done</span><span className="text-xl font-bold">{countDone}</span></div>
-                 <div className="bg-white/10 rounded p-2 backdrop-blur-sm flex flex-col justify-between"><span className="text-[10px] text-indigo-200 uppercase truncate">Archived</span><span className="text-xl font-bold">{countArchived}</span></div>
+                 <div className="bg-white/10 rounded-xl p-2 backdrop-blur-sm flex flex-col justify-between min-h-[70px] border border-white/10">
+                    <div className="flex justify-between items-start">
+                        <span className="text-[9px] text-indigo-100 uppercase font-bold tracking-wider">To Do</span>
+                        <Circle size={12} className="text-indigo-200 opacity-80" />
+                    </div>
+                    <span className="text-xl font-bold">{countNotStarted}</span>
+                 </div>
+                 
+                 <div className="bg-white/10 rounded-xl p-2 backdrop-blur-sm flex flex-col justify-between min-h-[70px] border border-white/10">
+                    <div className="flex justify-between items-start">
+                        <span className="text-[9px] text-indigo-100 uppercase font-bold tracking-wider">In Prog</span>
+                        <Clock size={12} className="text-blue-200 opacity-80" />
+                    </div>
+                    <span className="text-xl font-bold">{countInProgress}</span>
+                 </div>
+
+                 <div className="bg-white/10 rounded-xl p-2 backdrop-blur-sm flex flex-col justify-between min-h-[70px] border border-white/10">
+                    <div className="flex justify-between items-start">
+                        <span className="text-[9px] text-indigo-100 uppercase font-bold tracking-wider">Waiting</span>
+                        <Hourglass size={12} className="text-amber-200 opacity-80" />
+                    </div>
+                    <span className="text-xl font-bold">{countWaiting}</span>
+                 </div>
+
+                 <div className="bg-white/10 rounded-xl p-2 backdrop-blur-sm flex flex-col justify-between min-h-[70px] border border-white/10">
+                    <div className="flex justify-between items-start">
+                        <span className="text-[9px] text-indigo-100 uppercase font-bold tracking-wider">Done</span>
+                        <CheckCircle2 size={12} className="text-emerald-200 opacity-80" />
+                    </div>
+                    <span className="text-xl font-bold">{countDone}</span>
+                 </div>
+
+                 <div className="bg-white/10 rounded-xl p-2 backdrop-blur-sm flex flex-col justify-between min-h-[70px] border border-white/10">
+                     <div className="flex justify-between items-start">
+                        <span className="text-[9px] text-indigo-100 uppercase font-bold tracking-wider">Archived</span>
+                        <Archive size={12} className="text-slate-300 opacity-80" />
+                    </div>
+                    <span className="text-xl font-bold">{countArchived}</span>
+                 </div>
              </div>
            </div>
 
-           {/* CHANGED: Simplified Observations Overview */}
-           <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-slate-800 text-sm">Observations</h3>
-                <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
-                  <StickyNote size={18} />
+           {/* Simplified Observations Overview */}
+           <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                        <StickyNote size={20} />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-slate-800 text-sm">Observations</h3>
+                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Tracker</p>
+                    </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4 divide-x divide-slate-100">
-                <div className="text-center px-2">
-                  <div className="text-2xl font-bold text-slate-800">{obsNew}</div>
-                  <div className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-wide">New</div>
-                </div>
-                <div className="text-center px-2">
-                  <div className="text-2xl font-bold text-slate-800">{obsWip}</div>
-                  <div className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-wide">In Progress</div>
-                </div>
-                <div className="text-center px-2">
-                  <div className="text-2xl font-bold text-slate-800">{obsResolved}</div>
-                  <div className="text-xs text-slate-500 font-medium mt-1 uppercase tracking-wide">Resolved</div>
+                
+                <div className="flex items-center gap-4">
+                    <div className="text-center">
+                        <div className="text-lg font-bold text-slate-800 leading-none">{obsNew}</div>
+                        <div className="text-[10px] text-slate-500 font-bold uppercase mt-1">New</div>
+                    </div>
+                    <div className="w-px h-8 bg-slate-100"></div>
+                     <div className="text-center">
+                        <div className="text-lg font-bold text-slate-800 leading-none">{obsWip}</div>
+                        <div className="text-[10px] text-slate-500 font-bold uppercase mt-1">WIP</div>
+                    </div>
+                    <div className="w-px h-8 bg-slate-100"></div>
+                     <div className="text-center">
+                        <div className="text-lg font-bold text-slate-800 leading-none">{obsResolved}</div>
+                        <div className="text-[10px] text-slate-500 font-bold uppercase mt-1">Done</div>
+                    </div>
                 </div>
               </div>
            </div>
