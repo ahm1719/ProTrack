@@ -14,7 +14,9 @@ import {
   Clock, 
   Sparkles, 
   HelpCircle,
-  LogOut
+  LogOut,
+  Archive,
+  BarChart3
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -40,6 +42,8 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
+const BUILD_VERSION = "V1";
+
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
   taskPriorities: Object.values(Priority),
@@ -59,6 +63,8 @@ const App: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
   
+  const [currentTime, setCurrentTime] = useState(new Date());
+  
   // UI States
   const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -67,6 +73,9 @@ const App: React.FC = () => {
 
   // --- Initialization & Sync ---
   useEffect(() => {
+    // Clock Timer
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+
     // 1. Load Local Config
     const savedConfig = localStorage.getItem('protrack_firebase_config');
     const localAppConfig = localStorage.getItem('protrack_app_config');
@@ -96,6 +105,8 @@ const App: React.FC = () => {
         console.error("Failed to auto-init firebase", e);
       }
     }
+
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -286,6 +297,13 @@ const App: React.FC = () => {
   };
 
   // --- Derived Data for Dashboard ---
+  const greeting = useMemo(() => {
+    const hour = currentTime.getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
+  }, [currentTime]);
+
   const todayStr = new Date().toLocaleDateString('en-CA');
   const overdueTasks = useMemo(() => {
     return tasks.filter(t => 
@@ -335,20 +353,61 @@ const App: React.FC = () => {
     switch (view) {
       case ViewMode.DASHBOARD:
         return (
-          <div className="space-y-8 animate-fade-in">
-             <header className="flex justify-between items-center mb-6">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
-                    <p className="text-slate-500 text-sm">Overview of your deadlines and progress.</p>
+          <div className="space-y-6 animate-fade-in">
+             {/* Time Header with Report Gen */}
+             <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-2xl p-8 text-white shadow-lg mb-6 relative overflow-hidden">
+                <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+                    <div>
+                        <h1 className="text-3xl font-bold mb-2">{greeting}, User</h1>
+                        <p className="text-indigo-100 text-lg opacity-90">
+                            {currentTime.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+                        </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-4 w-full md:w-auto">
+                        <div className="text-4xl font-bold tracking-tight hidden md:block">
+                            {currentTime.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                        <button 
+                            onClick={handleGenerateReport}
+                            className="w-full md:w-auto flex items-center justify-center gap-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-6 py-3 md:py-2 rounded-lg transition-all text-sm font-bold border border-white/10 shadow-lg"
+                        >
+                            <Sparkles size={18} /> Generate Weekly Report
+                        </button>
+                    </div>
                 </div>
-                <button 
-                  onClick={handleGenerateReport}
-                  className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all"
-                >
-                    <Sparkles size={18} />
-                    Generate Weekly Report
-                </button>
-             </header>
+                {/* Decorative Circles */}
+                <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
+                <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-indigo-500/30 rounded-full blur-2xl"></div>
+             </div>
+
+             {/* Observation Summary Stats */}
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {appConfig.observationStatuses.map((status) => {
+                    const count = observations.filter(o => o.status === status).length;
+                    
+                    let colorClass = "bg-white border-slate-200 text-slate-600";
+                    let icon = MessageSquare;
+                    
+                    const s = status.toLowerCase();
+                    if (s.includes('new')) { colorClass = "bg-blue-50 border-blue-200 text-blue-700"; icon = AlertTriangle; }
+                    else if (s.includes('review')) { colorClass = "bg-amber-50 border-amber-200 text-amber-700"; icon = Clock; }
+                    else if (s.includes('resolved') || s.includes('done')) { colorClass = "bg-emerald-50 border-emerald-200 text-emerald-700"; icon = CheckCircle2; }
+                    else if (s.includes('archived')) { colorClass = "bg-slate-50 border-slate-200 text-slate-500"; icon = Archive; }
+                    else { colorClass = "bg-white border-slate-200 text-slate-700"; icon = BarChart3; }
+
+                    return (
+                        <div key={status} className={`p-4 rounded-xl border flex items-center justify-between shadow-sm ${colorClass} hover:shadow-md transition-shadow cursor-default`}>
+                            <div>
+                                <p className="text-[10px] font-bold uppercase opacity-70 mb-1 tracking-wider">{status}</p>
+                                <p className="text-2xl font-bold">{count}</p>
+                            </div>
+                            <div className="p-2 bg-white/50 rounded-lg">
+                                {React.createElement(icon, { size: 20 })}
+                            </div>
+                        </div>
+                    );
+                })}
+             </div>
 
             {/* 1. Overdue Section */}
             {overdueTasks.length > 0 && (
@@ -530,7 +589,7 @@ const App: React.FC = () => {
            {isSidebarOpen && (
              <div className="flex flex-col">
                 <span className="font-bold text-xl tracking-tight text-slate-800 leading-none">ProTrack<span className="text-indigo-600">AI</span></span>
-                <span className="text-[10px] text-slate-400 font-medium tracking-wide">Build V1</span>
+                <span className="text-[10px] text-slate-400 font-medium tracking-wide mt-0.5">Build {BUILD_VERSION}</span>
              </div>
            )}
         </div>
