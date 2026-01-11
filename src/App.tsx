@@ -43,7 +43,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V1.3";
+const BUILD_VERSION = "V1.4";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -691,7 +691,7 @@ const App: React.FC = () => {
            {isSidebarOpen && (
              <div className="flex flex-col">
                 <span className="font-bold text-xl tracking-tight text-slate-800 leading-none">ProTrack<span className="text-indigo-600">AI</span></span>
-                <span className="text-[10px] text-slate-400 font-medium tracking-wide mt-0.5">Build {BUILD_VERSION}</span>
+                <span className="text-xs text-indigo-500 font-bold tracking-wide mt-0.5">Build {BUILD_VERSION}</span>
              </div>
            )}
         </div>
