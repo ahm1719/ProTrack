@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, ListTodo, BookOpen, Sparkles, Download, Save } from 'lucide-react';
+import { LayoutDashboard, ListTodo, BookOpen, Sparkles, Download, Save, Server, Globe, Database, GitBranch } from 'lucide-react';
 
 const UserManual: React.FC = () => {
   return (
@@ -83,6 +83,70 @@ const UserManual: React.FC = () => {
             <strong>How to Backup:</strong> Click the "Backup Data (JSON)" button in the sidebar. This downloads a file to your computer.
             <br/><br/>
             <em>(Note: Restore functionality can be added in future updates).</em>
+          </div>
+        </section>
+
+        {/* Section 4: System Architecture */}
+        <section className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+          <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <Server className="text-indigo-600" />
+            System Architecture & Resources
+          </h2>
+          <p className="text-slate-600 mb-6 text-sm">
+            ProTrack AI utilizes a modern stack to ensure your data is secure, accessible, and the application is always available.
+          </p>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {/* GitHub */}
+            <a 
+              href="https://github.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex flex-col items-center text-center p-5 rounded-xl border border-slate-200 hover:border-indigo-500 hover:shadow-md transition-all group bg-slate-50 hover:bg-white"
+            >
+              <div className="p-3 bg-white border border-slate-200 text-slate-700 rounded-full mb-3 group-hover:bg-slate-800 group-hover:text-white transition-colors shadow-sm">
+                <GitBranch size={24} />
+              </div>
+              <h3 className="font-bold text-slate-800 mb-1">GitHub</h3>
+              <p className="text-xs text-slate-500 mb-3">Code Repository</p>
+              <div className="text-[10px] text-slate-400 bg-white px-2 py-1 rounded border border-slate-100">
+                Main Website Source
+              </div>
+            </a>
+
+            {/* Vercel */}
+            <a 
+              href="https://vercel.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex flex-col items-center text-center p-5 rounded-xl border border-slate-200 hover:border-black hover:shadow-md transition-all group bg-slate-50 hover:bg-white"
+            >
+              <div className="p-3 bg-white border border-slate-200 text-slate-700 rounded-full mb-3 group-hover:bg-black group-hover:text-white transition-colors shadow-sm">
+                <Globe size={24} />
+              </div>
+              <h3 className="font-bold text-slate-800 mb-1">Vercel</h3>
+              <p className="text-xs text-slate-500 mb-3">Web Hosting</p>
+              <div className="text-[10px] text-slate-400 bg-white px-2 py-1 rounded border border-slate-100">
+                Website Host
+              </div>
+            </a>
+
+            {/* Firebase */}
+            <a 
+              href="https://console.firebase.google.com/project/my-protrack-1693a/overview" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex flex-col items-center text-center p-5 rounded-xl border border-slate-200 hover:border-amber-500 hover:shadow-md transition-all group bg-slate-50 hover:bg-white"
+            >
+              <div className="p-3 bg-white border border-slate-200 text-slate-700 rounded-full mb-3 group-hover:bg-amber-500 group-hover:text-white transition-colors shadow-sm">
+                <Database size={24} />
+              </div>
+              <h3 className="font-bold text-slate-800 mb-1">Firebase</h3>
+              <p className="text-xs text-slate-500 mb-3">Cloud Database</p>
+              <div className="text-[10px] text-slate-400 bg-white px-2 py-1 rounded border border-slate-100">
+                Cloud Storage
+              </div>
+            </a>
           </div>
         </section>
       </div>
