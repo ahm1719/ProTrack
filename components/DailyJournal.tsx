@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Task, DailyLog, Status } from '../types';
-import { Filter, RotateCcw, ChevronLeft, ChevronRight, Ban } from 'lucide-react';
+import { Filter, RotateCcw, ChevronLeft, ChevronRight, Ban, Calendar as CalendarIcon } from 'lucide-react';
 
 interface DailyJournalProps {
   tasks: Task[];
@@ -29,6 +29,7 @@ const getEndOfWeek = (date: Date) => {
 };
 
 const getWeekNumber = (d: Date): number => {
+  // ISO Week Number logic
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   const dayNum = date.getUTCDay() || 7;
   date.setUTCDate(date.getUTCDate() + 4 - dayNum);
@@ -43,21 +44,29 @@ interface MiniCalendarProps {
 }
 
 const MiniCalendar = ({ selectedDate, onSelectDate, offDays }: MiniCalendarProps) => {
-  const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate));
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
-
-  const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
-  const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay(); // 0 is Sunday
+  // Parse YYYY-MM-DD manually to ensure we create a Local Time date object, avoiding UTC shifts
+  const [sYear, sMonth, sDay] = selectedDate.split('-').map(Number);
   
-  // Adjust so 0 is Monday (0-6)
-  const startOffset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+  // Initialize calendar view to the month of the selected date
+  // Note: Month in Date constructor is 0-indexed (0=Jan, 11=Dec)
+  const [viewDate, setViewDate] = useState(new Date(sYear, sMonth - 1, 1));
+
+  const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate();
+  const firstDayObj = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+  const firstDayOfWeek = firstDayObj.getDay(); // 0 is Sunday
+  
+  // Calculate offset to align Monday as the first column
+  // If first day is Sunday (0), offset is 6. If Monday (1), offset is 0.
+  const startOffset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
+
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
   const prevMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+    setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
   };
   const nextMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+    setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
   };
 
   const renderDays = () => {
@@ -71,12 +80,14 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays }: MiniCalendarProps
 
     // Fill days
     for (let i = 1; i <= daysInMonth; i++) {
-      const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), i);
-      const dateStr = date.toISOString().split('T')[0];
+      // Create local date object for this specific day
+      const d = new Date(viewDate.getFullYear(), viewDate.getMonth(), i);
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      
       const isSelected = dateStr === selectedDate;
       const isToday = dateStr === todayStr;
       
-      const dayOfWeek = date.getDay(); // 0 = Sun, 6 = Sat
+      const dayOfWeek = d.getDay(); // 0 = Sun, 6 = Sat
       const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
       const isOffDay = offDays.includes(dateStr);
 
@@ -89,19 +100,19 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays }: MiniCalendarProps
       }
 
       if (isSelected) {
-          bgClass = 'bg-indigo-600 text-white shadow-md shadow-indigo-200 scale-110';
+          bgClass = 'bg-indigo-600 text-white shadow-md shadow-indigo-200 scale-110 font-semibold';
       } else if (!isSelected && isToday) {
-          bgClass = 'border border-indigo-500 text-indigo-600 font-bold';
+          bgClass = 'border-2 border-indigo-500 text-indigo-700 font-bold';
       }
 
       days.push(
         <button
           key={dateStr}
           onClick={() => onSelectDate(dateStr)}
-          className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-200
+          className={`h-8 w-8 rounded-full flex items-center justify-center text-xs transition-all duration-200
             ${bgClass}
           `}
-          title={isOffDay ? "Off Day" : isWeekend ? "Weekend" : ""}
+          title={isOffDay ? "Off Day" : isWeekend ? "Weekend" : dateStr}
         >
           {i}
         </button>
@@ -123,24 +134,29 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays }: MiniCalendarProps
     const totalWeeks = dayElements.length / 7;
 
     for (let w = 0; w < totalWeeks; w++) {
-        let weekRefDate = null;
-        for (let d = 0; d < 7; d++) {
-             const dayIndex = (w * 7 + d) - startOffset + 1;
-             if (dayIndex > 0 && dayIndex <= daysInMonth) {
-                 weekRefDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), dayIndex);
-                 break;
-             }
-        }
+        // Determine the CW for this week row
+        // We pick the first valid day in this row (or falling back to the 1st of month logic) to calculate the ISO week
+        // Ideally, we take the Thursday of the week to determine CW correctly
+        let thursdayDate = null;
         
-        if (!weekRefDate) {
-             weekRefDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
-        }
+        // Find the date corresponding to the Thursday column (index 3 in 0-6 range)
+        // The index in dayElements for Thursday of week w is: w*7 + 3
+        const thursdayIndex = w * 7 + 3;
+        
+        // We need to map this index back to a real Date. 
+        // Logic: dayElements index X corresponds to day number: X - startOffset + 1
+        const dayNum = thursdayIndex - startOffset + 1;
+        
+        // Handle overlap with previous/next months for CW calculation purposes if needed
+        // For simplicity in this mini calendar, we estimate based on the current view month
+        const safeDayNum = Math.max(1, Math.min(dayNum, daysInMonth));
+        thursdayDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), safeDayNum);
 
-        const cw = getWeekNumber(weekRefDate);
+        const cw = getWeekNumber(thursdayDate);
 
         rows.push(
             <div key={w} className="flex items-center">
-                <div className="w-8 h-8 flex items-center justify-center text-[10px] text-slate-400 font-mono border-r border-slate-100 mr-2 bg-slate-50">
+                <div className="w-8 h-8 flex items-center justify-center text-[10px] text-slate-400 font-mono border-r border-slate-100 mr-2 bg-slate-50 select-none">
                     {cw}
                 </div>
                 <div className="flex gap-1">
@@ -157,16 +173,16 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays }: MiniCalendarProps
       <div className="flex items-center justify-between mb-4">
         <button onClick={prevMonth} className="p-1 hover:bg-slate-100 rounded text-slate-500"><ChevronLeft size={16} /></button>
         <span className="text-sm font-bold text-slate-800">
-          {currentMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+          {viewDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
         </span>
         <button onClick={nextMonth} className="p-1 hover:bg-slate-100 rounded text-slate-500"><ChevronRight size={16} /></button>
       </div>
       
       <div className="flex mb-2">
-         <div className="w-8 mr-2 text-[10px] text-center font-bold text-slate-400">CW</div>
+         <div className="w-8 mr-2 text-[10px] text-center font-bold text-slate-400 select-none">CW</div>
          <div className="flex gap-1 flex-1 justify-between">
              {['M','T','W','T','F','S','S'].map((d, i) => (
-                 <div key={i} className="w-8 text-center text-[10px] font-bold text-slate-400">{d}</div>
+                 <div key={i} className="w-8 text-center text-[10px] font-bold text-slate-400 select-none">{d}</div>
              ))}
          </div>
       </div>
@@ -179,7 +195,7 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays }: MiniCalendarProps
 };
 
 const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUpdateTask, initialTaskId, offDays = [], onToggleOffDay }) => {
-  const [entryDate, setEntryDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [entryDate, setEntryDate] = useState<string>(new Date().toLocaleDateString('en-CA')); // YYYY-MM-DD local
 
   // State for the View/Filter
   const [viewRange, setViewRange] = useState({
@@ -212,7 +228,8 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
   return (
     <div className="space-y-6 h-full flex flex-col">
       <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-bold text-slate-800">
+        <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
+          <CalendarIcon className="text-indigo-600" />
           History & Calendar
         </h2>
       </div>
@@ -224,8 +241,15 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
         {/* Date Context Controls */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
             <div className="text-sm">
-                <span className="text-slate-500 text-xs uppercase font-bold block">Selected Date</span>
-                <span className="font-medium text-slate-800">{new Date(entryDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                <span className="text-slate-500 text-xs uppercase font-bold block mb-1">Selected Date</span>
+                <span className="font-bold text-slate-800 bg-slate-100 px-2 py-1 rounded">
+                    {/* Parse manually to avoid timezone shift on display */}
+                    {(() => {
+                        const [y, m, d] = entryDate.split('-').map(Number);
+                        const dateObj = new Date(y, m - 1, d);
+                        return dateObj.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+                    })()}
+                </span>
             </div>
             {onToggleOffDay && (
                 <button 
@@ -233,7 +257,7 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-colors ${isSelectedDateOff ? 'bg-red-100 text-red-700 hover:bg-red-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                 >
                   <Ban size={14} />
-                  {isSelectedDateOff ? 'Marked as Off' : 'Mark as Off'}
+                  {isSelectedDateOff ? 'Set as Work Day' : 'Mark as Off Day'}
                 </button>
             )}
         </div>
@@ -244,10 +268,10 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
         <div className="flex items-center justify-between">
            <div className="flex items-center gap-2 text-slate-600">
              <Filter size={16} />
-             <span className="text-xs font-bold uppercase">View History</span>
+             <span className="text-xs font-bold uppercase">Log History</span>
            </div>
            <button onClick={handleSetCurrentWeek} className="text-xs text-indigo-600 font-medium hover:underline flex items-center gap-1">
-             <RotateCcw size={12}/> Current Week
+             <RotateCcw size={12}/> Reset to This Week
            </button>
         </div>
         <div className="flex items-center gap-2">
@@ -255,53 +279,58 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
             type="date" 
             value={viewRange.start}
             onChange={(e) => setViewRange(prev => ({ ...prev, start: e.target.value }))}
-            className="w-full text-xs p-1.5 border border-slate-200 rounded bg-slate-50"
+            className="w-full text-xs p-1.5 border border-slate-200 rounded bg-slate-50 outline-none focus:border-indigo-500 transition-colors"
            />
            <span className="text-slate-400">-</span>
            <input 
             type="date" 
             value={viewRange.end}
             onChange={(e) => setViewRange(prev => ({ ...prev, end: e.target.value }))}
-            className="w-full text-xs p-1.5 border border-slate-200 rounded bg-slate-50"
+            className="w-full text-xs p-1.5 border border-slate-200 rounded bg-slate-50 outline-none focus:border-indigo-500 transition-colors"
            />
         </div>
       </div>
 
       {/* Timeline Display */}
-      <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-[500px]">
+      <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar min-h-[400px]">
         {sortedDates.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-center p-4">
+          <div className="flex flex-col items-center justify-center h-32 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-center p-4 mt-2">
             <p className="text-slate-400 text-sm">No logs in selected range.</p>
           </div>
         ) : (
-          <div className="space-y-6">
-            {sortedDates.map(date => (
-              <div key={date}>
-                 <h3 className="font-bold text-slate-800 pl-1 mb-2 text-xs uppercase tracking-wide sticky top-0 bg-slate-50 py-1 z-10">
-                    {new Date(date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric'})}
-                 </h3>
-                 <div className="relative border-l-2 border-indigo-100 ml-3 space-y-4 py-1">
-                    {logsByDate[date].slice().reverse().map((log) => {
-                      const task = tasks.find(t => t.id === log.taskId);
-                      return (
-                        <div key={log.id} className="relative pl-6">
-                          {/* Timeline Dot */}
-                          <div className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-white border-2 border-indigo-300"></div>
-                          
-                          <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                            <div className="flex justify-between items-start mb-1">
-                              <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600">
-                                {task?.displayId || 'Unknown'}
-                              </span>
+          <div className="space-y-6 pt-2">
+            {sortedDates.map(date => {
+               const [y, m, d] = date.split('-').map(Number);
+               const localDate = new Date(y, m - 1, d);
+               return (
+                  <div key={date}>
+                    <h3 className="font-bold text-slate-800 pl-1 mb-2 text-xs uppercase tracking-wide sticky top-0 bg-slate-50 py-1 z-10 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                        {localDate.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric'})}
+                    </h3>
+                    <div className="relative border-l-2 border-indigo-100 ml-3 space-y-4 py-1 pb-4">
+                        {logsByDate[date].slice().reverse().map((log) => {
+                        const task = tasks.find(t => t.id === log.taskId);
+                        return (
+                            <div key={log.id} className="relative pl-6 group">
+                            {/* Timeline Dot */}
+                            <div className="absolute -left-[7px] top-3 w-3 h-3 rounded-full bg-white border-2 border-slate-300 group-hover:border-indigo-500 transition-colors"></div>
+                            
+                            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                                <div className="flex justify-between items-start mb-1">
+                                <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 mb-1">
+                                    {task?.displayId || 'Unknown'}
+                                </span>
+                                </div>
+                                <p className="text-slate-700 text-xs leading-relaxed whitespace-pre-wrap">{log.content}</p>
                             </div>
-                            <p className="text-slate-700 text-xs leading-relaxed">{log.content}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                 </div>
-              </div>
-            ))}
+                            </div>
+                        );
+                        })}
+                    </div>
+                  </div>
+               );
+            })}
           </div>
         )}
       </div>
