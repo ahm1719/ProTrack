@@ -141,8 +141,8 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
   const advanceStatus = (obs: Observation) => {
       const currentIndex = columns.indexOf(obs.status);
       if (currentIndex !== -1 && currentIndex < columns.length - 1) {
-          // Cast to any to avoid type errors if Observation.status is inferred as Enum
-          onEditObservation({ ...obs, status: columns[currentIndex + 1] as any });
+          // Cast to ObservationStatus to match type expectation
+          onEditObservation({ ...obs, status: columns[currentIndex + 1] as ObservationStatus });
       }
   };
 
@@ -150,8 +150,8 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
   const regressStatus = (obs: Observation) => {
       const currentIndex = columns.indexOf(obs.status);
       if (currentIndex > 0) {
-          // Cast to any to avoid type errors if Observation.status is inferred as Enum
-          onEditObservation({ ...obs, status: columns[currentIndex - 1] as any });
+          // Cast to ObservationStatus to match type expectation
+          onEditObservation({ ...obs, status: columns[currentIndex - 1] as ObservationStatus });
       }
   };
 

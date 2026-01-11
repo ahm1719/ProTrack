@@ -650,7 +650,7 @@ const App: React.FC = () => {
         <div className="lg:col-span-3 space-y-8">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                <div>
-                  <h1 className="text-2xl font-bold text-slate-900">Task Board</h1>
+                  <h1 className="text-2xl font-bold text-slate-900">Daily Tasks</h1>
                   <p className="text-sm text-slate-500">Weekly schedule from {formatDateDDMMYYYY(weekStart)} to {formatDateDDMMYYYY(weekEnd)}.</p>
                </div>
                <div className="flex items-center gap-2 w-full md:w-auto">
