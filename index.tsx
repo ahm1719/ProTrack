@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-console.log("ProTrack AI App Mounting - Build v16");
+console.log("ProTrack AI App Mounting - Build v18 (Root Revert)");
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

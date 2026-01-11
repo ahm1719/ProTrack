@@ -5,7 +5,6 @@ import {
   BookOpen, 
   MessageSquare, 
   Settings as SettingsIcon, 
-  FileText, 
   Plus, 
   Search, 
   Menu, 
@@ -101,7 +100,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (isSyncEnabled) {
-      // Explicitly type 'data' as any to avoid implicit any error if type inference fails
+      // Explicitly type data as any to handle potential inference issues from the service
       const unsubscribe = subscribeToData((data: any) => {
         setTasks(data.tasks || []);
         setLogs(data.logs || []);
