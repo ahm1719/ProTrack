@@ -808,7 +808,7 @@ function App() {
       {/* Right Column: Task Board */}
       <div className="lg:col-span-2 space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <h2 className="text-2xl font-bold text-slate-800">Task List</h2>
+          <h2 className="text-2xl font-bold text-slate-800">Task Board</h2>
           <button 
             onClick={() => openTaskModal()}
             className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
@@ -852,6 +852,7 @@ function App() {
                   onAddUpdate={addUpdateToTask}
                   onEditUpdate={editTaskUpdate}
                   onDeleteUpdate={deleteTaskUpdate}
+                  onUpdateTask={updateTaskFields}
                 />
               ))}
             </div>
@@ -871,6 +872,7 @@ function App() {
                   onAddUpdate={addUpdateToTask}
                   onEditUpdate={editTaskUpdate}
                   onDeleteUpdate={deleteTaskUpdate}
+                  onUpdateTask={updateTaskFields}
                 />
               ))}
             </div>
@@ -890,6 +892,7 @@ function App() {
                   onAddUpdate={addUpdateToTask}
                   onEditUpdate={editTaskUpdate}
                   onDeleteUpdate={deleteTaskUpdate}
+                  onUpdateTask={updateTaskFields}
                 />
               ))}
             </div>
@@ -925,6 +928,7 @@ function App() {
                         onAddUpdate={addUpdateToTask}
                         onEditUpdate={editTaskUpdate}
                         onDeleteUpdate={deleteTaskUpdate}
+                        onUpdateTask={updateTaskFields}
                       />
                     ))}
                  </div>
@@ -959,7 +963,7 @@ function App() {
              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${currentView === ViewMode.TASKS || currentView === ViewMode.JOURNAL ? 'bg-indigo-50 text-indigo-700 font-bold shadow-sm' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 font-medium'}`}
            >
               <ListTodo size={20} className={currentView === ViewMode.TASKS ? 'text-indigo-600' : 'text-slate-400 group-hover:text-slate-600'} />
-              Tasks & Journal
+              Task Board
            </button>
            <button 
              onClick={() => setCurrentView(ViewMode.OBSERVATIONS)}
@@ -1020,7 +1024,7 @@ function App() {
       {isMobileMenuOpen && (
         <div className="md:hidden absolute inset-0 bg-white z-20 pt-20 px-6 animate-fade-in flex flex-col gap-2">
            <button onClick={() => { setCurrentView(ViewMode.DASHBOARD); setIsMobileMenuOpen(false); }} className="p-4 bg-slate-50 rounded-xl font-bold text-slate-700 flex items-center gap-3"><LayoutDashboard/> Dashboard</button>
-           <button onClick={() => { setCurrentView(ViewMode.TASKS); setIsMobileMenuOpen(false); }} className="p-4 bg-slate-50 rounded-xl font-bold text-slate-700 flex items-center gap-3"><ListTodo/> Tasks</button>
+           <button onClick={() => { setCurrentView(ViewMode.TASKS); setIsMobileMenuOpen(false); }} className="p-4 bg-slate-50 rounded-xl font-bold text-slate-700 flex items-center gap-3"><ListTodo/> Task Board</button>
            <button onClick={() => { setCurrentView(ViewMode.OBSERVATIONS); setIsMobileMenuOpen(false); }} className="p-4 bg-slate-50 rounded-xl font-bold text-slate-700 flex items-center gap-3"><StickyNote/> Observations</button>
            <button onClick={() => { handleGenerateSummary(); setIsMobileMenuOpen(false); }} className="p-4 bg-purple-50 rounded-xl font-bold text-purple-700 flex items-center gap-3"><Sparkles/> AI Report</button>
            <button onClick={() => { setCurrentView(ViewMode.SETTINGS); setIsMobileMenuOpen(false); }} className="p-4 bg-slate-50 rounded-xl font-bold text-slate-700 flex items-center gap-3"><SettingsIcon/> Settings</button>

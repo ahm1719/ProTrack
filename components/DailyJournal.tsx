@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Task, DailyLog, Status } from '../types';
-import { Calendar as CalendarIcon, Save, Plus, Clock, Calendar, Filter, RotateCcw, X, Info } from 'lucide-react';
+import { Calendar as CalendarIcon, Save, Plus, Clock, Calendar, Filter, RotateCcw, X, Info, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface DailyJournalProps {
   tasks: Task[];
@@ -24,6 +24,138 @@ const getEndOfWeek = (date: Date) => {
   const diff = d.getDate() - day + (day === 0 ? -6 : 1) + 6; // Sunday
   const newDate = new Date(d.setDate(diff));
   return newDate.toISOString().split('T')[0];
+};
+
+const getWeekNumber = (d: Date): number => {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+};
+
+const MiniCalendar = ({ selectedDate, onSelectDate }: { selectedDate: string, onSelectDate: (date: string) => void }) => {
+  const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate));
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+
+  const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
+  const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay(); // 0 is Sunday
+  
+  // Adjust so 0 is Monday (0-6)
+  const startOffset = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+
+  const prevMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  };
+  const nextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+  };
+
+  const renderDays = () => {
+    const days = [];
+    const totalSlots = Math.ceil((daysInMonth + startOffset) / 7) * 7;
+    
+    // Fill empty slots before start of month
+    for (let i = 0; i < startOffset; i++) {
+        days.push(<div key={`empty-${i}`} className="h-8 w-8"></div>);
+    }
+
+    // Fill days
+    for (let i = 1; i <= daysInMonth; i++) {
+      const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), i);
+      const dateStr = date.toISOString().split('T')[0];
+      const isSelected = dateStr === selectedDate;
+      const isToday = dateStr === todayStr;
+
+      days.push(
+        <button
+          key={dateStr}
+          onClick={() => onSelectDate(dateStr)}
+          className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium transition-colors
+            ${isSelected ? 'bg-indigo-600 text-white' : 'hover:bg-slate-100 text-slate-700'}
+            ${!isSelected && isToday ? 'border border-indigo-500 text-indigo-600 font-bold' : ''}
+          `}
+        >
+          {i}
+        </button>
+      );
+    }
+    
+    // Fill remaining slots
+    const remaining = totalSlots - days.length;
+    for(let i=0; i<remaining; i++) {
+         days.push(<div key={`empty-end-${i}`} className="h-8 w-8"></div>);
+    }
+
+    return days;
+  };
+
+  const renderWeeks = () => {
+    const dayElements = renderDays();
+    const rows = [];
+    const totalWeeks = dayElements.length / 7;
+
+    for (let w = 0; w < totalWeeks; w++) {
+        // Calculate the date of the first day in this row (can be from previous month logic if needed, but simplified here)
+        // We know the date of the first cell in this specific row index relative to the month start
+        // Find the first valid date in this row to determine CW
+        let weekRefDate = null;
+        for (let d = 0; d < 7; d++) {
+             // Logic to find a valid date in this row
+             const dayIndex = (w * 7 + d) - startOffset + 1;
+             if (dayIndex > 0 && dayIndex <= daysInMonth) {
+                 weekRefDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), dayIndex);
+                 break;
+             }
+        }
+        
+        // If row is entirely trailing empty cells (unlikely with this logic) fallback
+        if (!weekRefDate) {
+             // Fallback to start of next month logic or similar, but simplified:
+             weekRefDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1);
+        }
+
+        const cw = getWeekNumber(weekRefDate);
+
+        rows.push(
+            <div key={w} className="flex items-center">
+                <div className="w-8 h-8 flex items-center justify-center text-[10px] text-slate-400 font-mono border-r border-slate-100 mr-2 bg-slate-50">
+                    {cw}
+                </div>
+                <div className="flex gap-1">
+                    {dayElements.slice(w * 7, (w + 1) * 7)}
+                </div>
+            </div>
+        );
+    }
+    return rows;
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 w-full">
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={prevMonth} className="p-1 hover:bg-slate-100 rounded text-slate-500"><ChevronLeft size={16} /></button>
+        <span className="text-sm font-bold text-slate-800">
+          {currentMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}
+        </span>
+        <button onClick={nextMonth} className="p-1 hover:bg-slate-100 rounded text-slate-500"><ChevronRight size={16} /></button>
+      </div>
+      
+      <div className="flex mb-2">
+         <div className="w-8 mr-2 text-[10px] text-center font-bold text-slate-400">CW</div>
+         <div className="flex gap-1 flex-1 justify-between">
+             {['M','T','W','T','F','S','S'].map((d, i) => (
+                 <div key={i} className="w-8 text-center text-[10px] font-bold text-slate-400">{d}</div>
+             ))}
+         </div>
+      </div>
+      
+      <div className="space-y-1">
+        {renderWeeks()}
+      </div>
+    </div>
+  );
 };
 
 const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUpdateTask, initialTaskId }) => {
@@ -106,109 +238,103 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
         </h2>
       </div>
 
-      {/* Input Form */}
-      <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-        <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-100">
-           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">New Entry For:</span>
-           <input 
-            type="date" 
-            value={entryDate}
-            onChange={(e) => setEntryDate(e.target.value)}
-            className="text-sm text-slate-700 outline-none font-medium bg-slate-50 border border-slate-200 rounded px-2 py-1 focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
-
-        <form onSubmit={handleAddEntry} className="space-y-4">
-          <div>
-            <div className="flex justify-between items-center mb-1">
-                <label className="block text-xs font-medium text-slate-500">Task Reference</label>
-                {selectedTaskId && (
-                    <button 
-                        type="button" 
-                        onClick={() => setSelectedTaskId('')} 
-                        className="text-xs text-slate-400 hover:text-red-500 flex items-center gap-1"
+      {/* Calendar & Input Area */}
+      <div className="space-y-4">
+        <MiniCalendar selectedDate={entryDate} onSelectDate={setEntryDate} />
+        
+        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+            <form onSubmit={handleAddEntry} className="space-y-4">
+            <div>
+                <div className="flex justify-between items-center mb-1">
+                    <label className="block text-xs font-medium text-slate-500">Task Reference</label>
+                    {selectedTaskId && (
+                        <button 
+                            type="button" 
+                            onClick={() => setSelectedTaskId('')} 
+                            className="text-xs text-slate-400 hover:text-red-500 flex items-center gap-1"
+                        >
+                            <X size={12}/> Clear Selection
+                        </button>
+                    )}
+                </div>
+                
+                <div className="relative">
+                    <select 
+                    value={selectedTaskId}
+                    onChange={(e) => setSelectedTaskId(e.target.value)}
+                    className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 appearance-none"
+                    required
                     >
-                        <X size={12}/> Clear Selection
-                    </button>
+                    <option value="">Select a task...</option>
+                    {sortedTasks.map(t => (
+                        <option key={t.id} value={t.id}>
+                        {t.displayId} - {t.description}
+                        </option>
+                    ))}
+                    </select>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                        <ChevronDownIcon />
+                    </div>
+                </div>
+
+                {/* Display Full Description if Selected */}
+                {selectedTask && (
+                    <div className="mt-2 p-3 bg-slate-50 border border-slate-100 rounded-lg text-xs text-slate-600 leading-relaxed whitespace-pre-wrap flex gap-2 items-start">
+                        <Info size={14} className="text-indigo-400 flex-shrink-0 mt-0.5" />
+                        <span>{selectedTask.description}</span>
+                    </div>
                 )}
             </div>
-            
-            <div className="relative">
-                <select 
-                value={selectedTaskId}
-                onChange={(e) => setSelectedTaskId(e.target.value)}
-                className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 appearance-none"
-                required
-                >
-                <option value="">Select a task...</option>
-                {sortedTasks.map(t => (
-                    <option key={t.id} value={t.id}>
-                    {t.displayId} - {t.description}
-                    </option>
-                ))}
-                </select>
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                    <ChevronDownIcon />
-                </div>
-            </div>
 
-            {/* Display Full Description if Selected */}
+            {/* Quick Edit Controls for Selected Task */}
             {selectedTask && (
-                <div className="mt-2 p-3 bg-slate-50 border border-slate-100 rounded-lg text-xs text-slate-600 leading-relaxed whitespace-pre-wrap flex gap-2 items-start">
-                    <Info size={14} className="text-indigo-400 flex-shrink-0 mt-0.5" />
-                    <span>{selectedTask.description}</span>
+                <div className="grid grid-cols-2 gap-3 p-3 bg-indigo-50 rounded-lg border border-indigo-100 animate-fade-in">
+                <div>
+                    <label className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 uppercase mb-1">
+                        <Clock size={10} /> Status
+                    </label>
+                    <select
+                        value={selectedTask.status}
+                        onChange={(e) => onUpdateTask(selectedTask.id, { status: e.target.value as Status })}
+                        className="w-full p-1.5 text-xs border border-indigo-200 rounded focus:ring-1 focus:ring-indigo-500 outline-none bg-white text-slate-800"
+                    >
+                        {Object.values(Status).map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 uppercase mb-1">
+                        <Calendar size={10} /> Due Date
+                    </label>
+                    <input 
+                        type="date"
+                        value={selectedTask.dueDate}
+                        onChange={(e) => onUpdateTask(selectedTask.id, { dueDate: e.target.value })}
+                        className="w-full p-1.5 text-xs border border-indigo-200 rounded focus:ring-1 focus:ring-indigo-500 outline-none bg-white text-slate-800"
+                    />
+                </div>
                 </div>
             )}
-          </div>
-
-          {/* Quick Edit Controls for Selected Task */}
-          {selectedTask && (
-            <div className="grid grid-cols-2 gap-3 p-3 bg-indigo-50 rounded-lg border border-indigo-100 animate-fade-in">
-               <div>
-                  <label className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 uppercase mb-1">
-                    <Clock size={10} /> Status
-                  </label>
-                  <select
-                    value={selectedTask.status}
-                    onChange={(e) => onUpdateTask(selectedTask.id, { status: e.target.value as Status })}
-                    className="w-full p-1.5 text-xs border border-indigo-200 rounded focus:ring-1 focus:ring-indigo-500 outline-none bg-white text-slate-800"
-                  >
-                     {Object.values(Status).map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-               </div>
-               <div>
-                  <label className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 uppercase mb-1">
-                    <Calendar size={10} /> Due Date
-                  </label>
-                  <input 
-                    type="date"
-                    value={selectedTask.dueDate}
-                    onChange={(e) => onUpdateTask(selectedTask.id, { dueDate: e.target.value })}
-                    className="w-full p-1.5 text-xs border border-indigo-200 rounded focus:ring-1 focus:ring-indigo-500 outline-none bg-white text-slate-800"
-                  />
-               </div>
+            
+            <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Activity / Progress</label>
+                <textarea 
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="What did you work on?"
+                className="w-full p-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none h-32 resize-none bg-slate-50"
+                required
+                />
             </div>
-          )}
-          
-          <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Activity / Progress</label>
-            <textarea 
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="What did you work on?"
-              className="w-full p-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none h-32 resize-none bg-slate-50"
-              required
-            />
-          </div>
 
-          <button 
-            type="submit" 
-            className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg font-medium transition-colors shadow-sm"
-          >
-            <Save size={18} />
-            Log Activity
-          </button>
-        </form>
+            <button 
+                type="submit" 
+                className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-lg font-medium transition-colors shadow-sm"
+            >
+                <Save size={18} />
+                Log Activity
+            </button>
+            </form>
+        </div>
       </div>
 
       {/* Filter Bar */}
