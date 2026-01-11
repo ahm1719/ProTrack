@@ -62,6 +62,22 @@ export const generateWeeklySummary = async (tasks: Task[], logs: DailyLog[]): Pr
         return `- [${l.date}] On task ${task?.displayId || 'Unknown'}: ${l.content}`;
       }).join('\n');
 
+    // Logic for Custom Instruction
+    const customInstruction = localStorage.getItem('protrack_report_instruction');
+    const defaultInstruction = `
+      Please generate a professional, concise Weekly Summary Report formatted in Markdown.
+      Structure it as follows:
+      1. **Executive Summary**: A 2-3 sentence overview of the week's performance.
+      2. **Key Achievements**: Bullet points of completed work or major progress.
+      3. **Ongoing Actions**: Updates on items still in progress (cite Task IDs).
+      4. **Upcoming Deadlines**: Items due soon.
+      5. **Blockers/Issues**: If any negative sentiment or stalled items are detected.
+
+      Keep the tone professional yet direct.
+    `;
+    
+    const finalInstruction = customInstruction && customInstruction.trim() !== '' ? customInstruction : defaultInstruction;
+
     const prompt = `
       You are an executive assistant. I need a weekly progress summary based on my task tracking data.
       
@@ -74,15 +90,7 @@ export const generateWeeklySummary = async (tasks: Task[], logs: DailyLog[]): Pr
       Here is the status of ongoing tasks:
       ${tasksContext}
 
-      Please generate a professional, concise Weekly Summary Report formatted in Markdown.
-      Structure it as follows:
-      1. **Executive Summary**: A 2-3 sentence overview of the week's performance.
-      2. **Key Achievements**: Bullet points of completed work or major progress.
-      3. **Ongoing Actions**: Updates on items still in progress (cite Task IDs).
-      4. **Upcoming Deadlines**: Items due soon.
-      5. **Blockers/Issues**: If any negative sentiment or stalled items are detected.
-
-      Keep the tone professional yet direct.
+      ${finalInstruction}
     `;
 
     const response = await ai.models.generateContent({

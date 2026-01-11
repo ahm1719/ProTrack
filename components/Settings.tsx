@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, Upload, Cloud, Check, Wifi, WifiOff, AlertTriangle, RefreshCw, Key, Eye, EyeOff, Copy, Smartphone } from 'lucide-react';
+import { Download, Upload, Cloud, Check, Wifi, WifiOff, AlertTriangle, RefreshCw, Key, Eye, EyeOff, Copy, Smartphone, Sparkles, FileText, RotateCcw } from 'lucide-react';
 import { Task, DailyLog, Observation, FirebaseConfig } from '../types';
 import { initFirebase } from '../services/firebaseService';
 
@@ -37,6 +37,9 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
   const [geminiKey, setGeminiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
 
+  // Custom Report Instruction State
+  const [reportInstruction, setReportInstruction] = useState('');
+
   // Load existing config into text area if available (overrides default if they changed it)
   useEffect(() => {
     const savedConfig = localStorage.getItem('protrack_firebase_config');
@@ -48,11 +51,26 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
     if (savedGeminiKey) {
       setGeminiKey(savedGeminiKey);
     }
+
+    const savedInstruction = localStorage.getItem('protrack_report_instruction');
+    if (savedInstruction) {
+      setReportInstruction(savedInstruction);
+    }
   }, []);
 
   const handleSaveGeminiKey = () => {
     localStorage.setItem('protrack_gemini_key', geminiKey);
     alert("API Key saved securely to your browser's local storage.");
+  };
+
+  const handleSaveInstruction = () => {
+    localStorage.setItem('protrack_report_instruction', reportInstruction);
+    alert("Report instruction saved.");
+  };
+
+  const handleResetInstruction = () => {
+    setReportInstruction('');
+    localStorage.removeItem('protrack_report_instruction');
   };
 
   const handleExport = () => {
@@ -167,35 +185,69 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
                <p className="text-xs text-slate-500">Required for Weekly Summary generation.</p>
              </div>
           </div>
-          <div className="p-6">
-            <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Gemini API Key</label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <input 
-                  type={showKey ? "text" : "password"}
-                  value={geminiKey}
-                  onChange={(e) => setGeminiKey(e.target.value)}
-                  placeholder="Enter your Google GenAI API Key..."
-                  className="w-full pl-4 pr-10 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
-                />
+          <div className="p-6 space-y-6">
+            <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase mb-2">Gemini API Key</label>
+                <div className="flex gap-2">
+                <div className="relative flex-1">
+                    <input 
+                    type={showKey ? "text" : "password"}
+                    value={geminiKey}
+                    onChange={(e) => setGeminiKey(e.target.value)}
+                    placeholder="Enter your Google GenAI API Key..."
+                    className="w-full pl-4 pr-10 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                    />
+                    <button 
+                    type="button"
+                    onClick={() => setShowKey(!showKey)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                    {showKey ? <EyeOff size={16}/> : <Eye size={16}/>}
+                    </button>
+                </div>
                 <button 
-                  type="button"
-                  onClick={() => setShowKey(!showKey)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    onClick={handleSaveGeminiKey}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
                 >
-                  {showKey ? <EyeOff size={16}/> : <Eye size={16}/>}
+                    Save Key
                 </button>
-              </div>
-              <button 
-                onClick={handleSaveGeminiKey}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                Save Key
-              </button>
+                </div>
+                <p className="text-xs text-slate-400 mt-2">
+                Get a key at <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline">Google AI Studio</a>. stored locally in your browser.
+                </p>
             </div>
-            <p className="text-xs text-slate-400 mt-2">
-              Get a key at <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline">Google AI Studio</a>. stored locally in your browser.
-            </p>
+
+            <div className="pt-6 border-t border-slate-100">
+                <div className="flex items-center justify-between mb-2">
+                   <label className="block text-xs font-semibold text-slate-500 uppercase flex items-center gap-2">
+                      <FileText size={14} /> Custom Report Instruction
+                   </label>
+                   <button 
+                     onClick={handleResetInstruction}
+                     className="text-xs text-slate-400 hover:text-red-500 flex items-center gap-1 transition-colors"
+                     title="Reset to default"
+                   >
+                     <RotateCcw size={12} /> Reset Default
+                   </button>
+                </div>
+                <p className="text-xs text-slate-400 mb-3">
+                   Override the default prompt structure. E.g., "Translate to German", "Use bullet points only", or "Focus on potential risks".
+                </p>
+                <textarea 
+                    value={reportInstruction}
+                    onChange={(e) => setReportInstruction(e.target.value)}
+                    placeholder="Enter custom instructions for the AI report generation..."
+                    className="w-full h-32 p-3 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none resize-y bg-slate-50"
+                />
+                <div className="flex justify-end mt-2">
+                    <button 
+                    onClick={handleSaveInstruction}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                    Save Instruction
+                    </button>
+                </div>
+            </div>
           </div>
         </section>
 
