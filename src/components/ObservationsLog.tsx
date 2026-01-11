@@ -139,19 +139,19 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
 
   // Helper to move card to next status
   const advanceStatus = (obs: Observation) => {
-      const currentIndex = columns.indexOf(obs.status as string);
+      const currentIndex = columns.indexOf(obs.status as any);
       if (currentIndex !== -1 && currentIndex < columns.length - 1) {
-          // Cast to unknown first to handle potential type mismatch if Observation uses Enum
-          onEditObservation({ ...obs, status: columns[currentIndex + 1] as unknown as ObservationStatus });
+          // Cast to any to handle potential type mismatch if Observation uses Enum
+          onEditObservation({ ...obs, status: columns[currentIndex + 1] as any });
       }
   };
 
   // Helper to move card to previous status
   const regressStatus = (obs: Observation) => {
-      const currentIndex = columns.indexOf(obs.status as string);
+      const currentIndex = columns.indexOf(obs.status as any);
       if (currentIndex > 0) {
-          // Cast to unknown first to handle potential type mismatch if Observation uses Enum
-          onEditObservation({ ...obs, status: columns[currentIndex - 1] as unknown as ObservationStatus });
+          // Cast to any to handle potential type mismatch if Observation uses Enum
+          onEditObservation({ ...obs, status: columns[currentIndex - 1] as any });
       }
   };
 
@@ -264,7 +264,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                 {/* Image Previews in Form */}
                 {images.length > 0 && (
                   <div className="flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
-                    {images.map((img, idx) => (
+                    {images.map((img: string, idx: number) => (
                       <div key={idx} className="relative flex-shrink-0 group">
                         <img src={img} alt="Preview" className="h-16 w-16 object-cover rounded-lg border border-slate-200" />
                         <button 
@@ -318,7 +318,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                                     {/* Image Thumbnails in Card */}
                                     {obs.images && obs.images.length > 0 && (
                                       <div className="flex gap-2 mb-2 overflow-x-auto custom-scrollbar pb-1">
-                                        {obs.images.map((img, i) => (
+                                        {obs.images.map((img: string, i: number) => (
                                           <div 
                                             key={i} 
                                             className="relative flex-shrink-0 cursor-pointer hover:opacity-90"
@@ -359,7 +359,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                                             {/* Action Buttons Container */}
                                             <div className="flex items-center gap-1 ml-1 pl-1 border-l border-slate-100">
                                                 {/* Move Back Button */}
-                                                {columns.indexOf(obs.status as string) > 0 && (
+                                                {columns.indexOf(obs.status as any) > 0 && (
                                                     <button 
                                                         onClick={() => regressStatus(obs)}
                                                         className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-amber-600 transition-colors"
@@ -369,7 +369,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                                                     </button>
                                                 )}
                                                 {/* Move Next Button */}
-                                                {columns.indexOf(obs.status as string) < columns.length - 1 && (
+                                                {columns.indexOf(obs.status as any) < columns.length - 1 && (
                                                     <button 
                                                         onClick={() => advanceStatus(obs)}
                                                         className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-emerald-600 transition-colors"

@@ -5,7 +5,6 @@ import {
   BookOpen, 
   MessageSquare, 
   Settings as SettingsIcon, 
-  FileText, 
   Plus, 
   Search, 
   Menu, 
@@ -101,10 +100,11 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (isSyncEnabled) {
-      const unsubscribe = subscribeToData((data) => {
-        setTasks(data.tasks);
-        setLogs(data.logs);
-        setObservations(data.observations);
+      // Explicitly type data as any to handle potential inference issues from the service
+      const unsubscribe = subscribeToData((data: any) => {
+        setTasks(data.tasks || []);
+        setLogs(data.logs || []);
+        setObservations(data.observations || []);
         if (data.offDays) setOffDays(data.offDays);
       });
       return () => { if (unsubscribe) unsubscribe(); };
@@ -362,7 +362,7 @@ const App: React.FC = () => {
                                 key={task.id} 
                                 task={task} 
                                 onUpdateStatus={updateTaskStatus}
-                                onEdit={(t) => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }}
+                                onEdit={(t: Task) => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }}
                                 onDelete={deleteTask}
                                 onAddUpdate={addUpdateToTask}
                                 onEditUpdate={editTaskUpdate}
@@ -416,7 +416,7 @@ const App: React.FC = () => {
                                             key={task.id} 
                                             task={task} 
                                             onUpdateStatus={updateTaskStatus}
-                                            onEdit={(t) => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }}
+                                            onEdit={(t: Task) => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }}
                                             onDelete={deleteTask}
                                             onAddUpdate={addUpdateToTask}
                                             onEditUpdate={editTaskUpdate}
@@ -453,7 +453,7 @@ const App: React.FC = () => {
                         key={task.id} 
                         task={task} 
                         onUpdateStatus={updateTaskStatus}
-                        onEdit={(t) => setHighlightedTaskId(t.id)}
+                        onEdit={(t: Task) => setHighlightedTaskId(t.id)}
                         onDelete={deleteTask}
                         onAddUpdate={addUpdateToTask}
                         onEditUpdate={editTaskUpdate}
@@ -479,7 +479,7 @@ const App: React.FC = () => {
             tasks={tasks} 
             logs={logs} 
             onAddLog={handleAddLog} 
-            onUpdateTask={(tid, u) => updateTaskFields(tid, u)} 
+            onUpdateTask={(tid: string, u: any) => updateTaskFields(tid, u)} 
             offDays={offDays}
             onToggleOffDay={handleToggleOffDay}
           />

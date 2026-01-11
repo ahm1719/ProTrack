@@ -139,7 +139,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
 
   // Helper to move card to next status
   const advanceStatus = (obs: Observation) => {
-      const currentIndex = columns.indexOf(obs.status);
+      const currentIndex = columns.indexOf(obs.status as any);
       if (currentIndex !== -1 && currentIndex < columns.length - 1) {
           // Cast to any to handle potential type mismatch if Observation uses Enum
           onEditObservation({ ...obs, status: columns[currentIndex + 1] as any });
@@ -148,7 +148,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
 
   // Helper to move card to previous status
   const regressStatus = (obs: Observation) => {
-      const currentIndex = columns.indexOf(obs.status);
+      const currentIndex = columns.indexOf(obs.status as any);
       if (currentIndex > 0) {
           // Cast to any to handle potential type mismatch if Observation uses Enum
           onEditObservation({ ...obs, status: columns[currentIndex - 1] as any });
@@ -359,7 +359,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                                             {/* Action Buttons Container */}
                                             <div className="flex items-center gap-1 ml-1 pl-1 border-l border-slate-100">
                                                 {/* Move Back Button */}
-                                                {columns.indexOf(obs.status) > 0 && (
+                                                {columns.indexOf(obs.status as any) > 0 && (
                                                     <button 
                                                         onClick={() => regressStatus(obs)}
                                                         className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-amber-600 transition-colors"
@@ -369,7 +369,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                                                     </button>
                                                 )}
                                                 {/* Move Next Button */}
-                                                {columns.indexOf(obs.status) < columns.length - 1 && (
+                                                {columns.indexOf(obs.status as any) < columns.length - 1 && (
                                                     <button 
                                                         onClick={() => advanceStatus(obs)}
                                                         className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-emerald-600 transition-colors"
