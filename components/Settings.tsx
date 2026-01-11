@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, Upload, Cloud, Check, Wifi, WifiOff, AlertTriangle, RefreshCw, Key, Eye, EyeOff, Copy, Smartphone, Sparkles, FileText, RotateCcw, Database, Trash2, ImageMinus, History, HardDrive, PieChart, ExternalLink } from 'lucide-react';
-import { Task, DailyLog, Observation, FirebaseConfig, Status, ObservationStatus } from '../types';
+import { Download, Upload, Cloud, Check, Wifi, WifiOff, AlertTriangle, RefreshCw, Key, Eye, EyeOff, Copy, Smartphone, Sparkles, FileText, RotateCcw, Database, Trash2, ImageMinus, History, HardDrive, PieChart, ExternalLink, List, Plus, X } from 'lucide-react';
+import { Task, DailyLog, Observation, FirebaseConfig, Status, ObservationStatus, AppConfig } from '../types';
 import { initFirebase } from '../services/firebaseService';
 
 interface SettingsProps {
@@ -10,6 +10,8 @@ interface SettingsProps {
   onImportData: (data: { tasks: Task[]; logs: DailyLog[]; observations: Observation[] }) => void;
   onSyncConfigUpdate: (config: FirebaseConfig | null) => void;
   isSyncEnabled: boolean;
+  appConfig?: AppConfig;
+  onUpdateConfig?: (config: AppConfig) => void;
 }
 
 // Configuration from user screenshot
@@ -39,7 +41,52 @@ const formatBytes = (bytes: number) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImportData, onSyncConfigUpdate, isSyncEnabled }) => {
+const ListEditor = ({ title, items, onUpdate, placeholder }: { title: string, items: string[], onUpdate: (items: string[]) => void, placeholder: string }) => {
+    const [newItem, setNewItem] = useState('');
+
+    const handleAdd = () => {
+        if (newItem.trim() && !items.includes(newItem.trim())) {
+            onUpdate([...items, newItem.trim()]);
+            setNewItem('');
+        }
+    };
+
+    const handleDelete = (index: number) => {
+        const updated = items.filter((_, i) => i !== index);
+        onUpdate(updated);
+    };
+
+    return (
+        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <h4 className="font-bold text-slate-700 text-xs uppercase mb-3">{title}</h4>
+            <div className="flex flex-wrap gap-2 mb-3">
+                {items.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-1 bg-white px-2 py-1 rounded border border-slate-200 text-xs font-medium text-slate-600 shadow-sm group">
+                        <span>{item}</span>
+                        <button onClick={() => handleDelete(idx)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <X size={12} />
+                        </button>
+                    </div>
+                ))}
+            </div>
+            <div className="flex gap-2">
+                <input 
+                    type="text" 
+                    value={newItem}
+                    onChange={(e) => setNewItem(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+                    placeholder={placeholder}
+                    className="flex-1 px-3 py-1.5 text-xs border border-slate-300 rounded outline-none focus:border-indigo-500 bg-white"
+                />
+                <button onClick={handleAdd} className="bg-indigo-600 text-white p-1.5 rounded hover:bg-indigo-700">
+                    <Plus size={14} />
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImportData, onSyncConfigUpdate, isSyncEnabled, appConfig, onUpdateConfig }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importStatus, setImportStatus] = useState<'idle' | 'success' | 'error'>('idle');
   
@@ -264,6 +311,41 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
       </div>
 
       <div className="grid gap-8">
+        {/* Lists & Configs Section */}
+        {appConfig && onUpdateConfig && (
+            <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-indigo-50">
+                    <div className="p-2 rounded-lg bg-indigo-200 text-indigo-700">
+                        <List size={24} />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-bold text-slate-800">Lists & Classifications</h2>
+                        <p className="text-xs text-slate-500">Customize status labels, priority levels, and observation groups.</p>
+                    </div>
+                </div>
+                <div className="p-6 grid md:grid-cols-3 gap-6">
+                    <ListEditor 
+                        title="Task Statuses" 
+                        items={appConfig.taskStatuses} 
+                        onUpdate={(items) => onUpdateConfig({...appConfig, taskStatuses: items})}
+                        placeholder="Add Status..."
+                    />
+                     <ListEditor 
+                        title="Priorities" 
+                        items={appConfig.taskPriorities} 
+                        onUpdate={(items) => onUpdateConfig({...appConfig, taskPriorities: items})}
+                        placeholder="Add Priority..."
+                    />
+                     <ListEditor 
+                        title="Observation Groups" 
+                        items={appConfig.observationStatuses} 
+                        onUpdate={(items) => onUpdateConfig({...appConfig, observationStatuses: items})}
+                        placeholder="Add Group..."
+                    />
+                </div>
+            </section>
+        )}
+
         {/* Gemini API Key Section */}
         <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-purple-50">

@@ -20,6 +20,12 @@ export enum ObservationStatus {
   ARCHIVED = 'Archived'
 }
 
+export interface AppConfig {
+  taskStatuses: string[];
+  taskPriorities: string[];
+  observationStatuses: string[];
+}
+
 export interface TaskUpdate {
   id: string;
   timestamp: string; // ISO String
@@ -33,8 +39,8 @@ export interface Task {
   projectId: string; // New Project ID field
   description: string;
   dueDate: string; // YYYY-MM-DD
-  status: Status;
-  priority: Priority;
+  status: string; // Changed from enum to string to support dynamic
+  priority: string; // Changed from enum to string to support dynamic
   updates: TaskUpdate[]; // Historical updates/comments
   createdAt: string;
 }
@@ -50,7 +56,7 @@ export interface Observation {
   id: string;
   timestamp: string;
   content: string;
-  status: ObservationStatus;
+  status: string; // Changed from enum to string
   images?: string[];
 }
 

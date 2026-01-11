@@ -16,6 +16,8 @@ interface TaskCardProps {
   onNavigate?: () => void;
   onUpdateTask?: (id: string, fields: Partial<Task>) => void;
   autoExpand?: boolean;
+  availableStatuses?: string[];
+  availablePriorities?: string[];
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ 
@@ -31,7 +33,9 @@ const TaskCard: React.FC<TaskCardProps> = ({
   allowStatusChange,
   onNavigate,
   onUpdateTask,
-  autoExpand = false
+  autoExpand = false,
+  availableStatuses = Object.values(Status),
+  availablePriorities = Object.values(Priority)
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [newUpdate, setNewUpdate] = useState('');
@@ -55,23 +59,22 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   }, [autoExpand]);
 
-  const getPriorityColor = (p: Priority) => {
-    switch (p) {
-      case Priority.HIGH: return 'bg-red-100 text-red-800 border-red-200';
-      case Priority.MEDIUM: return 'bg-amber-100 text-amber-800 border-amber-200';
-      case Priority.LOW: return 'bg-green-100 text-green-800 border-green-200';
-    }
+  const getPriorityColor = (p: string) => {
+    // Default mappings for standard priorities, fallback for custom
+    if (p === Priority.HIGH) return 'bg-red-100 text-red-800 border-red-200';
+    if (p === Priority.MEDIUM) return 'bg-amber-100 text-amber-800 border-amber-200';
+    if (p === Priority.LOW) return 'bg-green-100 text-green-800 border-green-200';
+    return 'bg-slate-100 text-slate-800 border-slate-200';
   };
 
-  const getStatusColor = (s: Status) => {
-    switch (s) {
-      case Status.DONE: return 'bg-emerald-500 text-white';
-      case Status.IN_PROGRESS: return 'bg-blue-500 text-white';
-      case Status.NOT_STARTED: return 'bg-slate-200 text-slate-600';
-      case Status.WAITING: return 'bg-amber-400 text-white';
-      case Status.ARCHIVED: return 'bg-slate-500 text-white';
-      default: return 'bg-slate-200 text-slate-600';
-    }
+  const getStatusColor = (s: string) => {
+    // Default mappings for standard statuses, fallback for custom
+    if (s === Status.DONE) return 'bg-emerald-500 text-white';
+    if (s === Status.IN_PROGRESS) return 'bg-blue-500 text-white';
+    if (s === Status.NOT_STARTED) return 'bg-slate-200 text-slate-600';
+    if (s === Status.WAITING) return 'bg-amber-400 text-white';
+    if (s === Status.ARCHIVED) return 'bg-slate-500 text-white';
+    return 'bg-slate-200 text-slate-600';
   };
 
   const formatDate = (dateStr: string) => {
@@ -215,7 +218,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     }}
                     onBlur={() => setEditingField(null)}
                  >
-                     {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
+                     {availablePriorities.map(p => <option key={p} value={p}>{p}</option>)}
                  </select>
              ) : (
                 <span 
@@ -333,7 +336,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               className={`text-xs font-semibold px-3 py-1.5 rounded-full cursor-pointer border-none outline-none ring-0 ${getStatusColor(task.status)} hover:opacity-90 transition-opacity`}
               title="Change Status"
             >
-              {Object.values(Status).map((s) => (
+              {availableStatuses.map((s) => (
                 <option key={s} value={s} className="bg-white text-slate-800">
                   {s}
                 </option>

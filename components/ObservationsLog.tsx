@@ -8,11 +8,18 @@ interface ObservationsLogProps {
   onAddObservation: (obs: Observation) => void;
   onEditObservation: (obs: Observation) => void;
   onDeleteObservation: (id: string) => void;
+  columns?: string[];
 }
 
-const ObservationsLog: React.FC<ObservationsLogProps> = ({ observations, onAddObservation, onEditObservation, onDeleteObservation }) => {
+const ObservationsLog: React.FC<ObservationsLogProps> = ({ 
+    observations, 
+    onAddObservation, 
+    onEditObservation, 
+    onDeleteObservation,
+    columns = Object.values(ObservationStatus) 
+}) => {
   const [content, setContent] = useState('');
-  const [status, setStatus] = useState<ObservationStatus>(ObservationStatus.NEW);
+  const [status, setStatus] = useState<string>(columns[0] || ObservationStatus.NEW);
   const [images, setImages] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   
@@ -110,7 +117,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({ observations, onAddOb
     // Reset Form
     setContent('');
     setImages([]);
-    setStatus(ObservationStatus.NEW);
+    setStatus(columns[0] || ObservationStatus.NEW);
   };
 
   const handleEditClick = (obs: Observation) => {
@@ -127,36 +134,38 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({ observations, onAddOb
     setEditingId(null);
     setContent('');
     setImages([]);
-    setStatus(ObservationStatus.NEW);
+    setStatus(columns[0] || ObservationStatus.NEW);
   };
 
   // Helper to move card to next status
   const advanceStatus = (obs: Observation) => {
-      let nextStatus = obs.status;
-      if (obs.status === ObservationStatus.NEW) nextStatus = ObservationStatus.REVIEWING;
-      else if (obs.status === ObservationStatus.REVIEWING) nextStatus = ObservationStatus.RESOLVED;
-      
-      if (nextStatus !== obs.status) {
-          onEditObservation({ ...obs, status: nextStatus });
+      const currentIndex = columns.indexOf(obs.status);
+      if (currentIndex !== -1 && currentIndex < columns.length - 1) {
+          // Cast to any to avoid type errors if Observation.status is inferred as Enum
+          onEditObservation({ ...obs, status: columns[currentIndex + 1] as any });
       }
   };
 
   // Helper to move card to previous status
   const regressStatus = (obs: Observation) => {
-      let prevStatus = obs.status;
-      if (obs.status === ObservationStatus.RESOLVED) prevStatus = ObservationStatus.REVIEWING;
-      else if (obs.status === ObservationStatus.REVIEWING) prevStatus = ObservationStatus.NEW;
-      
-      if (prevStatus !== obs.status) {
-          onEditObservation({ ...obs, status: prevStatus });
+      const currentIndex = columns.indexOf(obs.status);
+      if (currentIndex > 0) {
+          // Cast to any to avoid type errors if Observation.status is inferred as Enum
+          onEditObservation({ ...obs, status: columns[currentIndex - 1] as any });
       }
   };
 
-  const columns = [
-    { status: ObservationStatus.NEW, label: 'New', icon: Circle, color: 'bg-blue-50 text-blue-700 border-blue-200' },
-    { status: ObservationStatus.REVIEWING, label: 'WIP', icon: Clock, color: 'bg-amber-50 text-amber-700 border-amber-200' },
-    { status: ObservationStatus.RESOLVED, label: 'Resolved', icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  ];
+  const getColumnStyle = (index: number) => {
+    // Generate some deterministic style variations
+    const styles = [
+        { icon: Circle, color: 'bg-blue-50 text-blue-700 border-blue-200' },
+        { icon: Clock, color: 'bg-amber-50 text-amber-700 border-amber-200' },
+        { icon: CheckCircle2, color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+        { icon: StickyNote, color: 'bg-purple-50 text-purple-700 border-purple-200' },
+        { icon: StickyNote, color: 'bg-slate-50 text-slate-700 border-slate-200' }
+    ];
+    return styles[index % styles.length];
+  };
 
   return (
     <div className="flex flex-col h-[calc(100vh-6rem)] animate-fade-in space-y-4 relative">
@@ -209,11 +218,11 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({ observations, onAddOb
                 <div className="flex flex-col md:flex-row gap-3">
                   <select 
                       value={status}
-                      onChange={(e) => setStatus(e.target.value as ObservationStatus)}
+                      onChange={(e) => setStatus(e.target.value)}
                       className="w-full md:w-48 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 cursor-pointer"
                   >
-                      {Object.values(ObservationStatus).filter(s => s !== ObservationStatus.ARCHIVED).map(s => (
-                      <option key={s} value={s}>{s}</option>
+                      {columns.map(s => (
+                        <option key={s} value={s}>{s}</option>
                       ))}
                   </select>
                   <div className="flex-1 flex gap-2">
@@ -276,17 +285,17 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({ observations, onAddOb
       {/* Kanban Columns - Flex Grow to Fill Rest */}
       <div className="flex-1 min-h-0 overflow-x-auto">
         <div className="flex h-full gap-4 min-w-[800px] md:min-w-0 pb-2">
-            {columns.map((col) => {
-                const colObs = observations.filter(o => o.status === col.status);
-                const Icon = col.icon;
+            {columns.map((colName, index) => {
+                const colObs = observations.filter(o => o.status === colName);
+                const { icon: Icon, color } = getColumnStyle(index);
                 
                 return (
-                    <div key={col.status} className="flex-1 flex flex-col bg-slate-100/50 rounded-xl border border-slate-200 overflow-hidden min-w-[250px]">
+                    <div key={colName} className="flex-1 flex flex-col bg-slate-100/50 rounded-xl border border-slate-200 overflow-hidden min-w-[250px]">
                         {/* Column Header */}
-                        <div className={`p-3 border-b border-slate-200 flex items-center justify-between ${col.color} bg-opacity-40 backdrop-blur-sm`}>
+                        <div className={`p-3 border-b border-slate-200 flex items-center justify-between ${color} bg-opacity-40 backdrop-blur-sm`}>
                             <div className="flex items-center gap-2 font-bold text-sm">
                                 <Icon size={16} />
-                                {col.label}
+                                {colName}
                             </div>
                             <span className="bg-white/60 px-2 py-0.5 rounded text-xs font-bold border border-slate-100">
                                 {colObs.length}
@@ -349,7 +358,8 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({ observations, onAddOb
                                             
                                             {/* Action Buttons Container */}
                                             <div className="flex items-center gap-1 ml-1 pl-1 border-l border-slate-100">
-                                                {obs.status !== ObservationStatus.NEW && (
+                                                {/* Move Back Button */}
+                                                {columns.indexOf(obs.status) > 0 && (
                                                     <button 
                                                         onClick={() => regressStatus(obs)}
                                                         className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-amber-600 transition-colors"
@@ -358,7 +368,8 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({ observations, onAddOb
                                                         <ArrowLeft size={12} />
                                                     </button>
                                                 )}
-                                                {obs.status !== ObservationStatus.RESOLVED && (
+                                                {/* Move Next Button */}
+                                                {columns.indexOf(obs.status) < columns.length - 1 && (
                                                     <button 
                                                         onClick={() => advanceStatus(obs)}
                                                         className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-emerald-600 transition-colors"

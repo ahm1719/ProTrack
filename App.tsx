@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Task, DailyLog, ViewMode, Status, Priority, Observation, ObservationStatus, FirebaseConfig } from './types';
+import { Task, DailyLog, ViewMode, Status, Priority, Observation, ObservationStatus, FirebaseConfig, AppConfig } from './types';
 import TaskCard from './components/TaskCard';
 import DailyJournal from './components/DailyJournal';
 import UserManual from './components/UserManual';
@@ -71,6 +71,13 @@ const INITIAL_LOGS: DailyLog[] = [
 
 const INITIAL_OBSERVATIONS: Observation[] = [];
 const INITIAL_OFF_DAYS: string[] = [];
+
+// Default Configuration
+const DEFAULT_CONFIG: AppConfig = {
+  taskStatuses: Object.values(Status),
+  taskPriorities: Object.values(Priority),
+  observationStatuses: Object.values(ObservationStatus)
+};
 
 // Helper to get current CW
 const getCurrentCW = (): string => {
@@ -177,6 +184,11 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : INITIAL_OFF_DAYS;
   });
 
+  const [appConfig, setAppConfig] = useState<AppConfig>(() => {
+    const saved = localStorage.getItem('protrack_app_config');
+    return saved ? JSON.parse(saved) : DEFAULT_CONFIG;
+  });
+
   const [currentView, setCurrentView] = useState<ViewMode>(ViewMode.DASHBOARD);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -268,6 +280,12 @@ const App: React.FC = () => {
     }
   }, [isSyncEnabled]);
 
+  // Persist Config Changes
+  const updateAppConfig = (newConfig: AppConfig) => {
+    setAppConfig(newConfig);
+    localStorage.setItem('protrack_app_config', JSON.stringify(newConfig));
+  };
+
   const updateTasks = (newTasks: Task[]) => {
     setTasks(newTasks);
     persistData(newTasks, logs, observations, offDays);
@@ -354,13 +372,11 @@ const App: React.FC = () => {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
-  const getPriorityColor = (p: Priority) => {
-    switch (p) {
-      case Priority.HIGH: return 'bg-red-100 text-red-800 border-red-200';
-      case Priority.MEDIUM: return 'bg-amber-100 text-amber-800 border-amber-200';
-      case Priority.LOW: return 'bg-green-100 text-green-800 border-green-200';
-      default: return 'bg-slate-100 text-slate-800 border-slate-200';
-    }
+  const getPriorityColor = (p: string) => {
+    if (p === Priority.HIGH) return 'bg-red-100 text-red-800 border-red-200';
+    if (p === Priority.MEDIUM) return 'bg-amber-100 text-amber-800 border-amber-200';
+    if (p === Priority.LOW) return 'bg-green-100 text-green-800 border-green-200';
+    return 'bg-slate-100 text-slate-800 border-slate-200';
   };
 
   const openTaskModal = (task?: Task) => {
@@ -390,8 +406,8 @@ const App: React.FC = () => {
       projectId: projectId,
       description: formData.get('description') as string,
       dueDate: formData.get('dueDate') as string,
-      priority: formData.get('priority') as Priority,
-      status: (formData.get('status') as Status) || Status.NOT_STARTED,
+      priority: formData.get('priority') as string,
+      status: (formData.get('status') as string) || Status.NOT_STARTED,
       updates: editingTask ? editingTask.updates : [],
       createdAt: editingTask ? editingTask.createdAt : new Date().toISOString(),
     };
@@ -684,6 +700,8 @@ const App: React.FC = () => {
                                 onDeleteUpdate={deleteTaskUpdate}
                                 onUpdateTask={updateTaskFields}
                                 autoExpand={task.id === highlightedTaskId}
+                                availableStatuses={appConfig.taskStatuses}
+                                availablePriorities={appConfig.taskPriorities}
                              />
                         ))}
                     </div>
@@ -736,6 +754,8 @@ const App: React.FC = () => {
                                         onDeleteUpdate={deleteTaskUpdate}
                                         onUpdateTask={updateTaskFields}
                                         autoExpand={task.id === highlightedTaskId}
+                                        availableStatuses={appConfig.taskStatuses}
+                                        availablePriorities={appConfig.taskPriorities}
                                      />
                                    ))
                                )}
@@ -772,6 +792,8 @@ const App: React.FC = () => {
                                     onDeleteUpdate={deleteTaskUpdate}
                                     onUpdateTask={updateTaskFields}
                                     autoExpand={task.id === highlightedTaskId}
+                                    availableStatuses={appConfig.taskStatuses}
+                                    availablePriorities={appConfig.taskPriorities}
                                 />
                             ))
                         )}
@@ -801,6 +823,8 @@ const App: React.FC = () => {
                             isReadOnly={true}
                             allowStatusChange={true}
                             autoExpand={task.id === highlightedTaskId}
+                            availableStatuses={appConfig.taskStatuses}
+                            availablePriorities={appConfig.taskPriorities}
                          />
                      ))}
                   </div>
@@ -824,9 +848,17 @@ const App: React.FC = () => {
     const countDone = tasks.filter(t => t.status === Status.DONE).length;
     const countArchived = tasks.filter(t => t.status === Status.ARCHIVED).length;
     
-    const obsNew = observations.filter(o => o.status === ObservationStatus.NEW).length;
-    const obsWip = observations.filter(o => o.status === ObservationStatus.REVIEWING).length;
-    const obsResolved = observations.filter(o => o.status === ObservationStatus.RESOLVED).length;
+    // Observation Counts for Header
+    // We assume the first 3 statuses in the config relate to New, WIP, and Done
+    const obsStatuses = appConfig.observationStatuses;
+    const obsCounts = obsStatuses.map(status => ({
+        status,
+        count: observations.filter(o => o.status === status).length
+    }));
+    
+    // Only show if there are observations in the first two groups (typically New/WIP)
+    const hasActiveObservations = obsCounts.length > 0 && 
+                                  (obsCounts[0].count > 0 || (obsCounts.length > 1 && obsCounts[1].count > 0));
 
     return (
       <div className="space-y-6 animate-fade-in pb-12">
@@ -850,21 +882,46 @@ const App: React.FC = () => {
               </div>
            </div>
            
-           {/* Observation Summary - Conditional Display */}
-           {(obsNew > 0 || obsWip > 0) && (
-               <div className="mt-4 md:mt-0 flex bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="flex flex-col items-center justify-center px-5 py-2 bg-blue-50 border-r border-slate-100 min-w-[80px]">
-                      <span className="text-xl font-bold text-blue-600 leading-none">{obsNew}</span>
-                      <span className="text-[10px] font-extrabold text-blue-400 uppercase mt-1 tracking-wide">New</span>
-                  </div>
-                  <div className="flex flex-col items-center justify-center px-5 py-2 bg-amber-50 border-r border-slate-100 min-w-[80px]">
-                      <span className="text-xl font-bold text-amber-500 leading-none">{obsWip}</span>
-                      <span className="text-[10px] font-extrabold text-amber-400 uppercase mt-1 tracking-wide">WIP</span>
-                  </div>
-                   <div className="flex flex-col items-center justify-center px-5 py-2 bg-emerald-50 min-w-[80px]">
-                      <span className="text-xl font-bold text-emerald-600 leading-none">{obsResolved}</span>
-                      <span className="text-[10px] font-extrabold text-emerald-400 uppercase mt-1 tracking-wide">Done</span>
-                  </div>
+           {/* Observation Summary - Conditional Display in Header */}
+           {hasActiveObservations && (
+               <div className="mt-4 md:mt-0 bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex items-center gap-6">
+                  <div className="flex items-center gap-3 border-r border-slate-100 pr-4 mr-2">
+                       <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                           <StickyNote size={20} />
+                       </div>
+                       <div>
+                           <h3 className="font-bold text-slate-800 text-sm">Observations</h3>
+                           <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Tracker</p>
+                       </div>
+                   </div>
+
+                   <div className="flex items-center gap-6">
+                      {obsCounts.slice(0, 3).map((item, index) => {
+                          let colorClass = 'text-slate-800';
+                          let labelClass = 'text-slate-500';
+                          
+                          // Heuristic coloring for first 3 columns as requested: Blue, Yellow, Green
+                          if (index === 0) {
+                              colorClass = 'text-blue-600';
+                              labelClass = 'text-blue-400';
+                          } else if (index === 1) {
+                              colorClass = 'text-amber-500';
+                              labelClass = 'text-amber-400';
+                          } else if (index === 2) {
+                              colorClass = 'text-emerald-600';
+                              labelClass = 'text-emerald-400';
+                          }
+
+                          return (
+                              <div key={item.status} className="text-center">
+                                  <div className={`text-xl font-bold leading-none ${colorClass}`}>{item.count}</div>
+                                  <div className={`text-[10px] font-extrabold uppercase mt-1 tracking-wide ${labelClass}`}>
+                                      {item.status.length > 8 ? item.status.substring(0, 8) + '..' : item.status}
+                                  </div>
+                              </div>
+                          );
+                      })}
+                   </div>
                </div>
            )}
         </div>
@@ -920,37 +977,8 @@ const App: React.FC = () => {
              </div>
            </div>
 
-           {/* Simplified Observations Overview (Reverted) */}
-           <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-col justify-center">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
-                        <StickyNote size={20} />
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-slate-800 text-sm">Observations</h3>
-                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Tracker</p>
-                    </div>
-                </div>
-                
-                <div className="flex items-center gap-4">
-                    <div className="text-center">
-                        <div className="text-lg font-bold text-slate-800 leading-none">{obsNew}</div>
-                        <div className="text-[10px] text-slate-500 font-bold uppercase mt-1">New</div>
-                    </div>
-                    <div className="w-px h-8 bg-slate-100"></div>
-                     <div className="text-center">
-                        <div className="text-lg font-bold text-slate-800 leading-none">{obsWip}</div>
-                        <div className="text-[10px] text-slate-500 font-bold uppercase mt-1">WIP</div>
-                    </div>
-                    <div className="w-px h-8 bg-slate-100"></div>
-                     <div className="text-center">
-                        <div className="text-lg font-bold text-slate-800 leading-none">{obsResolved}</div>
-                        <div className="text-[10px] text-slate-500 font-bold uppercase mt-1">Done</div>
-                    </div>
-                </div>
-              </div>
-           </div>
+           {/* Removed Old Observation Card Here */}
+           
          </div>
 
          {/* Weekly Summary Section */}
@@ -1128,6 +1156,7 @@ const App: React.FC = () => {
                   onAddObservation={addObservation}
                   onEditObservation={editObservation}
                   onDeleteObservation={deleteObservation}
+                  columns={appConfig.observationStatuses}
                 />
              )}
 
@@ -1139,6 +1168,8 @@ const App: React.FC = () => {
                   onImportData={handleImportData}
                   onSyncConfigUpdate={handleSyncConfigUpdate}
                   isSyncEnabled={isSyncEnabled}
+                  appConfig={appConfig}
+                  onUpdateConfig={updateAppConfig}
                 />
              )}
 
@@ -1215,7 +1246,7 @@ const App: React.FC = () => {
                     defaultValue={editingTask?.priority || Priority.MEDIUM}
                     className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
                   >
-                    {Object.values(Priority).map(p => <option key={p} value={p}>{p}</option>)}
+                    {appConfig.taskPriorities.map(p => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </div>
               </div>
@@ -1228,7 +1259,7 @@ const App: React.FC = () => {
                       defaultValue={editingTask.status}
                       className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
                     >
-                      {Object.values(Status).map(s => <option key={s} value={s}>{s}</option>)}
+                      {appConfig.taskStatuses.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                  </div>
                )}
