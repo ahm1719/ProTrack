@@ -358,7 +358,7 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
               </div>
 
               <HighlightManager 
-                options={appConfig.updateHighlightOptions} 
+                options={appConfig.updateHighlightOptions || []} 
                 onUpdate={newOptions => onUpdateConfig({ ...appConfig, updateHighlightOptions: newOptions })} 
               />
           </div>
