@@ -43,7 +43,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.0.1";
+const BUILD_VERSION = "V2.0.2";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -79,15 +79,15 @@ const App: React.FC = () => {
   const [generatedReport, setGeneratedReport] = useState('');
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
-  // New Task Form State
+  // New Task Form State - Priority is typed as string to match Task interface
   const [newTaskForm, setNewTaskForm] = useState({
     source: `CW${getWeekNumber(new Date())}`,
     projectId: '',
     displayId: '',
     description: '',
     dueDate: new Date().toISOString().split('T')[0],
-    status: Status.NOT_STARTED,
-    priority: Priority.MEDIUM
+    status: Status.NOT_STARTED as string,
+    priority: Priority.MEDIUM as string
   });
 
   useEffect(() => {
@@ -148,10 +148,11 @@ const App: React.FC = () => {
     let maxSeq = 0;
     projectTasks.forEach(t => {
       const parts = t.displayId.split('-');
-      const seq = parseInt(parts[parts.length - 1]);
+      const seqStr = parts[parts.length - 1];
+      const seq = parseInt(seqStr);
       if (!isNaN(seq) && seq > maxSeq) maxSeq = seq;
     });
-    return `${projectId}-${maxSeq + 1}`;
+    return projectId ? `${projectId}-${maxSeq + 1}` : '';
   };
 
   const handleCreateTask = (e: React.FormEvent) => {
@@ -171,8 +172,8 @@ const App: React.FC = () => {
       displayId: '',
       description: '',
       dueDate: new Date().toISOString().split('T')[0],
-      status: Status.NOT_STARTED,
-      priority: Priority.MEDIUM
+      status: appConfig.taskStatuses[0] || Status.NOT_STARTED,
+      priority: appConfig.taskPriorities[1] || Priority.MEDIUM
     });
     setView(ViewMode.TASKS);
   };
