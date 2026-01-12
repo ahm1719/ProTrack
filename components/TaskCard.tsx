@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Task, Status, Priority, TaskAttachment } from '../types';
 import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight, Archive, X, Save, Paperclip, File, Download as DownloadIcon } from 'lucide-react';
@@ -20,6 +19,7 @@ interface TaskCardProps {
   autoExpand?: boolean;
   availableStatuses?: string[];
   availablePriorities?: string[];
+  isDailyView?: boolean;
 }
 
 const TaskCard: React.FC<TaskCardProps> = ({ 
@@ -37,13 +37,15 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onUpdateTask,
   autoExpand = false,
   availableStatuses = Object.values(Status),
-  availablePriorities = Object.values(Priority)
+  availablePriorities = Object.values(Priority),
+  isDailyView = false
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [newUpdate, setNewUpdate] = useState('');
   const [pendingAttachments, setPendingAttachments] = useState<TaskAttachment[]>([]);
   const cardRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const taskFileInputRef = useRef<HTMLInputElement>(null);
   
   const [editingUpdateId, setEditingUpdateId] = useState<string | null>(null);
   const [editUpdateContent, setEditUpdateContent] = useState('');
@@ -95,8 +97,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
 
-  // Fixed type issues by ensuring file properties are accessed correctly from the File object
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, isTaskFile = false) => {
     const files = e.target.files;
     if (!files) return;
 
@@ -104,17 +105,31 @@ const TaskCard: React.FC<TaskCardProps> = ({
         const reader = new FileReader();
         reader.onload = (event) => {
             if (event.target?.result) {
-                setPendingAttachments(prev => [...prev, {
+                const attachment: TaskAttachment = {
                     id: uuidv4(),
                     name: file.name,
                     type: file.type,
                     data: event.target!.result as string
-                }]);
+                };
+                if (isTaskFile) {
+                    if (onUpdateTask) {
+                        const currentAttachments = task.attachments || [];
+                        onUpdateTask(task.id, { attachments: [...currentAttachments, attachment] });
+                    }
+                } else {
+                    setPendingAttachments(prev => [...prev, attachment]);
+                }
             }
         };
         reader.readAsDataURL(file);
     });
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (e.target) e.target.value = '';
+  };
+
+  const removeTaskAttachment = (id: string) => {
+    if (onUpdateTask && task.attachments) {
+        onUpdateTask(task.id, { attachments: task.attachments.filter(a => a.id !== id) });
+    }
   };
 
   const removePendingAttachment = (id: string) => {
@@ -270,11 +285,27 @@ const TaskCard: React.FC<TaskCardProps> = ({
             ) : (
               <>
                 <button 
-                  onClick={() => onEdit(task)} 
+                  onClick={() => taskFileInputRef.current?.click()}
                   className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                  title="Attach global task file"
                 >
-                  <Edit2 size={16} />
+                  <Paperclip size={16} />
                 </button>
+                <input 
+                  type="file" 
+                  ref={taskFileInputRef} 
+                  className="hidden" 
+                  onChange={(e) => handleFileChange(e, true)}
+                />
+                
+                {!isDailyView && (
+                    <button 
+                    onClick={() => onEdit(task)} 
+                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                    >
+                    <Edit2 size={16} />
+                    </button>
+                )}
                 {allowDelete && (
                   <button 
                     onClick={() => onDelete(task.id)} 
@@ -308,6 +339,23 @@ const TaskCard: React.FC<TaskCardProps> = ({
             >
               {task.description}
             </h3>
+        )}
+
+        {/* Global Task Attachments */}
+        {task.attachments && task.attachments.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-2">
+                {task.attachments.map(att => (
+                    <div key={att.id} className="flex items-center gap-1 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded text-[10px] font-bold text-slate-500 shadow-xs group">
+                        <File size={10} />
+                        <span onClick={() => downloadAttachment(att)} className="max-w-[100px] truncate cursor-pointer hover:text-indigo-600">{att.name}</span>
+                        {!isReadOnly && (
+                            <button onClick={() => removeTaskAttachment(att.id)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <X size={10} />
+                            </button>
+                        )}
+                    </div>
+                ))}
+            </div>
         )}
 
         <div className="flex items-center justify-between mt-4">
@@ -393,7 +441,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
                             className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
-                            title="Attach File"
+                            title="Attach File to update"
                         >
                             <Paperclip size={18} />
                         </button>
@@ -410,7 +458,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                         ref={fileInputRef} 
                         className="hidden" 
                         multiple 
-                        onChange={handleFileChange}
+                        onChange={(e) => handleFileChange(e, false)}
                     />
                     </div>
                 </form>
