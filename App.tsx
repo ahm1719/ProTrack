@@ -47,12 +47,12 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.3.0 (BASELINE)";
+const BUILD_VERSION = "V2.3.1 (WIP FIX)";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
   taskPriorities: Object.values(Priority),
-  observationStatuses: Object.values(ObservationStatus),
+  observationStatuses: ['New', 'WIP', 'Resolved', 'Archived'], // Updated default to include WIP
   itemColors: {
     [Priority.HIGH]: '#ef4444',
     [Priority.MEDIUM]: '#f59e0b',
@@ -61,7 +61,10 @@ const DEFAULT_CONFIG: AppConfig = {
     [Status.IN_PROGRESS]: '#3b82f6',
     [Status.WAITING]: '#f59e0b',
     [Status.NOT_STARTED]: '#94a3b8',
-    [Status.ARCHIVED]: '#64748b'
+    [Status.ARCHIVED]: '#64748b',
+    'New': '#3b82f6',
+    'WIP': '#f59e0b',
+    'Resolved': '#10b981'
   },
   updateHighlightOptions: [
     { id: '1', color: '#ef4444', label: 'Critical' },
@@ -252,9 +255,11 @@ const App: React.FC = () => {
     return base.filter(t => t.status === Status.DONE || t.status === Status.ARCHIVED);
   }, [tasks, searchQuery, activeTaskTab]);
 
-  const newObsCount = useMemo(() => observations.filter(o => o.status === ObservationStatus.NEW).length, [observations]);
-  const wipObsCount = useMemo(() => observations.filter(o => o.status === ObservationStatus.REVIEWING).length, [observations]);
-  const resolvedObsCount = useMemo(() => observations.filter(o => o.status === ObservationStatus.RESOLVED).length, [observations]);
+  const newObsCount = useMemo(() => observations.filter(o => o.status === 'New').length, [observations]);
+  // Updated WIP check to include 'WIP', 'Reviewing' and 'In Progress' to cover various user configurations
+  const wipObsCount = useMemo(() => observations.filter(o => ['WIP', 'Reviewing', 'In Progress'].includes(o.status)).length, [observations]);
+  const resolvedObsCount = useMemo(() => observations.filter(o => ['Resolved', 'Done', 'Completed'].includes(o.status)).length, [observations]);
+  
   const showObsMetrics = newObsCount > 0 || wipObsCount > 0 || resolvedObsCount > 0;
 
   const handleSelectTask = (id: string) => { setHighlightedTaskId(id); setView(ViewMode.TASKS); };
