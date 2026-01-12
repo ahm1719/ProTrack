@@ -1,7 +1,8 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, Upload, Cloud, Check, Wifi, WifiOff, AlertTriangle, Key, Eye, EyeOff, Copy, Smartphone, Sparkles, FileText, RotateCcw, Database, HardDrive, PieChart, List, Plus, X } from 'lucide-react';
-import { Task, DailyLog, Observation, FirebaseConfig, AppConfig } from '../types';
+/* Added AlertTriangle to imports */
+import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle } from 'lucide-react';
+import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status } from '../types';
 import { initFirebase } from '../services/firebaseService';
 
 interface SettingsProps {
@@ -13,7 +14,10 @@ interface SettingsProps {
   isSyncEnabled: boolean;
   appConfig: AppConfig;
   onUpdateConfig: (config: AppConfig) => void;
+  onPurgeData: (tasks: Task[], logs: DailyLog[]) => void;
 }
+
+const RESOURCE_LIMIT_BYTES = 1048576; // 1MB limit
 
 const getSizeInBytes = (obj: any) => {
     try { return new Blob([JSON.stringify(obj)]).size; } 
@@ -23,29 +27,58 @@ const getSizeInBytes = (obj: any) => {
 const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ['Bytes', 'KB', 'MB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
 const ListEditor = ({ title, items, onUpdate, placeholder }: { title: string, items: string[], onUpdate: (items: string[]) => void, placeholder: string }) => {
     const [newItem, setNewItem] = useState('');
+    const [editingIdx, setEditingIdx] = useState<number | null>(null);
+    const [editValue, setEditValue] = useState('');
+
     const handleAdd = () => {
         if (newItem.trim() && !items.includes(newItem.trim())) {
             onUpdate([...items, newItem.trim()]);
             setNewItem('');
         }
     };
+
+    const handleEditSave = (idx: number) => {
+        if (editValue.trim()) {
+            const newItems = [...items];
+            newItems[idx] = editValue.trim();
+            onUpdate(newItems);
+        }
+        setEditingIdx(null);
+    };
+
     return (
         <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 h-full">
             <h4 className="font-bold text-slate-700 text-[10px] uppercase mb-3 tracking-widest">{title}</h4>
             <div className="flex flex-wrap gap-2 mb-4 min-h-[40px]">
                 {items.map((item, idx) => (
                     <div key={idx} className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 shadow-sm group">
-                        <span>{item}</span>
-                        <button onClick={() => onUpdate(items.filter((_, i) => i !== idx))} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <X size={10} />
-                        </button>
+                        {editingIdx === idx ? (
+                            <input 
+                                autoFocus
+                                className="bg-transparent border-none outline-none w-20 text-indigo-600"
+                                value={editValue}
+                                onChange={e => setEditValue(e.target.value)}
+                                onBlur={() => handleEditSave(idx)}
+                                onKeyDown={e => e.key === 'Enter' && handleEditSave(idx)}
+                            />
+                        ) : (
+                            <>
+                                <span onDoubleClick={() => { setEditingIdx(idx); setEditValue(item); }}>{item}</span>
+                                <button onClick={() => { setEditingIdx(idx); setEditValue(item); }} className="text-slate-300 hover:text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Edit2 size={10} />
+                                </button>
+                                <button onClick={() => onUpdate(items.filter((_, i) => i !== idx))} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <X size={10} />
+                                </button>
+                            </>
+                        )}
                     </div>
                 ))}
             </div>
@@ -57,8 +90,28 @@ const ListEditor = ({ title, items, onUpdate, placeholder }: { title: string, it
     );
 };
 
-const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImportData, onSyncConfigUpdate, isSyncEnabled, appConfig, onUpdateConfig }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+const ResourceBar = ({ label, current, limit }: { label: string, current: number, limit: number }) => {
+    const percentage = Math.min(100, (current / limit) * 100);
+    const isCritical = percentage > 85;
+    return (
+        <div className="space-y-1">
+            <div className="flex justify-between items-end">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{label}</span>
+                <span className={`text-[10px] font-mono ${isCritical ? 'text-red-600 font-bold' : 'text-slate-400'}`}>
+                    {formatBytes(current)} / {formatBytes(limit)}
+                </span>
+            </div>
+            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div 
+                    className={`h-full transition-all duration-500 rounded-full ${isCritical ? 'bg-red-500' : 'bg-indigo-500'}`} 
+                    style={{ width: `${percentage}%` }}
+                />
+            </div>
+        </div>
+    );
+};
+
+const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImportData, onSyncConfigUpdate, isSyncEnabled, appConfig, onUpdateConfig, onPurgeData }) => {
   const [geminiKey, setGeminiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [configJson, setConfigJson] = useState('');
@@ -73,7 +126,22 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
     if (savedConfig) setConfigJson(JSON.stringify(JSON.parse(savedConfig), null, 2));
   }, []);
 
-  const storageStats = { total: getSizeInBytes({ tasks, logs, observations }) };
+  const storageStats = { 
+    total: getSizeInBytes({ tasks, logs, observations }),
+    tasks: getSizeInBytes(tasks),
+    logs: getSizeInBytes(logs),
+    obs: getSizeInBytes(observations)
+  };
+
+  const handlePurge = () => {
+    if (confirm("This will permanently delete ALL Done and Archived tasks and their associated logs. Continue?")) {
+        const activeTasks = tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED);
+        const activeTaskIds = new Set(activeTasks.map(t => t.id));
+        const activeLogs = logs.filter(l => activeTaskIds.has(l.taskId));
+        onPurgeData(activeTasks, activeLogs);
+        alert("Resources freed.");
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-12">
@@ -87,7 +155,7 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
               <List className="text-indigo-600" />
               <div>
                   <h2 className="text-lg font-bold text-slate-800">Classifications & Lists</h2>
-                  <p className="text-xs text-slate-500">Configure status and priority options globally.</p>
+                  <p className="text-xs text-slate-500">Double-click an item to rename it.</p>
               </div>
           </div>
           <div className="p-6 grid md:grid-cols-3 gap-6">
@@ -98,11 +166,45 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
       </section>
 
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b bg-rose-50 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                  <HardDrive className="text-rose-600" />
+                  <div>
+                      <h2 className="text-lg font-bold text-slate-800">Resource Health</h2>
+                      <p className="text-xs text-slate-500">Monitoring 1MB sync bucket limits.</p>
+                  </div>
+              </div>
+              <div className="text-right">
+                <span className="text-lg font-black text-rose-600 block">{formatBytes(storageStats.total)}</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Used of ~5MB Local</span>
+              </div>
+          </div>
+          <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <ResourceBar label="Tasks Buffer" current={storageStats.tasks} limit={RESOURCE_LIMIT_BYTES} />
+                  <ResourceBar label="Logs Buffer" current={storageStats.logs} limit={RESOURCE_LIMIT_BYTES} />
+                  <ResourceBar label="Observations Buffer" current={storageStats.obs} limit={RESOURCE_LIMIT_BYTES} />
+              </div>
+              <div className="bg-rose-50/50 p-4 rounded-xl border border-rose-100 flex items-center justify-between">
+                  <div className="flex items-start gap-3">
+                      <AlertTriangle className="text-rose-600 shrink-0 mt-0.5" size={18} />
+                      <div>
+                          <p className="text-xs font-bold text-rose-900">Purge Inactive Data</p>
+                          <p className="text-[10px] text-rose-700">Clears "Done" and "Archived" items to free up resources.</p>
+                      </div>
+                  </div>
+                  <button onClick={handlePurge} className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all shadow-md shadow-rose-100 flex items-center gap-2">
+                      <Trash2 size={14} /> Purge Inactive
+                  </button>
+              </div>
+          </div>
+      </section>
+
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b bg-purple-50 flex items-center gap-3">
               <Key size={24} className="text-purple-600" />
               <div>
                   <h2 className="text-lg font-bold text-slate-800">AI Report Config</h2>
-                  <p className="text-xs text-slate-500">Gemini Pro credentials and prompt engineering.</p>
               </div>
           </div>
           <div className="p-6 space-y-6">
@@ -113,7 +215,6 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
                   </div>
                   <button onClick={() => { localStorage.setItem('protrack_gemini_key', geminiKey); alert('Saved!'); }} className="px-6 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-bold shadow-md">Save</button>
               </div>
-              <textarea value={reportInstruction} onChange={e => setReportInstruction(e.target.value)} placeholder="Custom instructions for AI summary..." className="w-full h-32 p-4 text-sm border border-slate-300 rounded-xl bg-slate-50 outline-none focus:ring-2 focus:ring-purple-200 resize-none" />
           </div>
       </section>
 
@@ -136,16 +237,11 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
           </div>
       </section>
 
-      <div className="grid grid-cols-2 gap-4">
-          <button onClick={() => { const data = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ tasks, logs, observations }, null, 2)); const link = document.createElement('a'); link.setAttribute("href", data); link.setAttribute("download", `protrack_backup_${new Date().toISOString().split('T')[0]}.json`); link.click(); }} className="flex flex-col items-center gap-2 p-6 bg-slate-50 rounded-2xl border border-slate-200 hover:bg-white transition-all group">
-              <Download className="text-slate-400 group-hover:text-indigo-600" />
-              <span className="text-xs font-bold text-slate-600">Download Backup</span>
+      <div className="grid grid-cols-1 gap-4">
+          <button onClick={() => { const data = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ tasks, logs, observations }, null, 2)); const link = document.createElement('a'); link.setAttribute("href", data); link.setAttribute("download", `protrack_backup_${new Date().toISOString().split('T')[0]}.json`); link.click(); }} className="flex items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 hover:bg-black transition-all group shadow-xl">
+              <Download className="text-indigo-400 group-hover:text-white" />
+              <span className="text-sm font-bold uppercase tracking-widest">Download Full System Backup (JSON)</span>
           </button>
-          <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col items-center justify-center gap-2">
-              <HardDrive className="text-slate-400" />
-              {/* Fix: Property 'totalSize' does not exist on type '{ total: number; }'. Changed to 'total'. */}
-              <span className="text-xs font-bold text-slate-600">Storage Used: {formatBytes(storageStats.total)}</span>
-          </div>
       </div>
     </div>
   );
