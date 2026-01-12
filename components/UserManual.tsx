@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, ListTodo, BookOpen, Sparkles, Download, Save, Server, Globe, Database, GitBranch, Smartphone, Wifi, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, ListTodo, BookOpen, Sparkles, Download, Save, Server, Globe, Database, GitBranch, Smartphone, Wifi, AlertTriangle, CheckCircle2, XCircle, FileJson } from 'lucide-react';
 
 const UserManual: React.FC = () => {
   return (
@@ -167,19 +167,91 @@ const UserManual: React.FC = () => {
           </div>
         </div>
 
-        {/* Section 5: Data Safety */}
-        <section className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-          <h3 className="font-bold text-slate-800 mb-2 flex items-center gap-2">
-            <Download size={20} className="text-slate-600"/> Data Backup
-          </h3>
-          <p className="text-sm text-slate-600 mb-4">
-            Since data is stored in your browser, clearing your cache will delete your tasks. 
-            <strong> We highly recommend performing a weekly backup.</strong>
-          </p>
-          <div className="bg-white p-4 rounded-lg border border-slate-200 text-sm">
-            <strong>How to Backup:</strong> Click the "Backup Data (JSON)" button in the Settings page. This downloads a file to your computer.
-            <br/><br/>
-            <strong>How to Restore:</strong> Use the "Restore Backup" button in Settings to load a previously saved JSON file.
+        {/* Section 5: Data Backup Detail */}
+        <section className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="border-b border-slate-100 pb-6 mb-6">
+            <h2 className="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2">
+                <FileJson className="text-indigo-600" />
+                Data Backup & Recovery
+            </h2>
+            <p className="text-slate-600 text-sm">
+                Since data is stored locally in your browser, performing regular backups is critical to prevent data loss if you clear your cache or change browsers.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+                <h3 className="text-sm font-black text-emerald-700 uppercase tracking-widest flex items-center gap-2 bg-emerald-50 p-2 rounded-lg border border-emerald-100">
+                    <CheckCircle2 size={16} /> What is Backed Up
+                </h3>
+                <ul className="space-y-3 text-sm text-slate-600">
+                    <li className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <div>
+                            <strong className="text-slate-800">All Tasks:</strong>
+                            <p className="text-xs text-slate-500">Every active, done, and archived task including IDs, descriptions, and deadlines.</p>
+                        </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <div>
+                            <strong className="text-slate-800">Task History:</strong>
+                            <p className="text-xs text-slate-500">The complete timeline of comments, progress updates, and attachments linked to tasks.</p>
+                        </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <div>
+                            <strong className="text-slate-800">Daily Journal:</strong>
+                            <p className="text-xs text-slate-500">All text entries made in the History & Calendar view.</p>
+                        </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <div>
+                            <strong className="text-slate-800">Observations:</strong>
+                            <p className="text-xs text-slate-500">Kanban cards and their embedded images/screenshots.</p>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+
+            <div className="space-y-4">
+                <h3 className="text-sm font-black text-rose-700 uppercase tracking-widest flex items-center gap-2 bg-rose-50 p-2 rounded-lg border border-rose-100">
+                    <XCircle size={16} /> What is NOT Backed Up
+                </h3>
+                <ul className="space-y-3 text-sm text-slate-600">
+                    <li className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-rose-400 mt-1.5 shrink-0" />
+                        <div>
+                            <strong className="text-slate-800">App Settings:</strong>
+                            <p className="text-xs text-slate-500">Custom colors, custom Status/Priority lists, and Tag configurations are stored separately.</p>
+                        </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-rose-400 mt-1.5 shrink-0" />
+                        <div>
+                            <strong className="text-slate-800">API Keys:</strong>
+                            <p className="text-xs text-slate-500">Your Google Gemini and Firebase keys are excluded for security reasons.</p>
+                        </div>
+                    </li>
+                    <li className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-rose-400 mt-1.5 shrink-0" />
+                        <div>
+                            <strong className="text-slate-800">Calendar Preferences:</strong>
+                            <p className="text-xs text-slate-500">Days marked as "Off Days" (red/crossed out in calendar) are not currently included in the export file.</p>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+          </div>
+          
+          <div className="mt-8 bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm flex items-start gap-3">
+            <Download className="shrink-0 text-indigo-500 mt-0.5" size={18} />
+            <div>
+                <strong className="text-indigo-900 block mb-1">To Perform a Backup:</strong>
+                <span className="text-slate-600">Go to <strong>Settings</strong> and scroll to the bottom. Click "Download Full System Backup (JSON)". Store this file in a secure location (e.g., Google Drive). To restore, simply upload this file using the "Restore" button next to it.</span>
+            </div>
           </div>
         </section>
 

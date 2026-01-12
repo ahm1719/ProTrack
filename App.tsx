@@ -18,7 +18,9 @@ import {
   Layers,
   Calendar,
   Briefcase,
-  ArrowRight
+  ArrowRight,
+  Activity,
+  PieChart
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -210,6 +212,8 @@ const App: React.FC = () => {
   const todayStr = new Date().toLocaleDateString('en-CA');
   const weeklyFocusCount = useMemo(() => tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED).length, [tasks]);
   const statusSummary = useMemo(() => appConfig.taskStatuses.map(s => ({ label: s, count: tasks.filter(t => t.status === s).length })), [tasks, appConfig.taskStatuses]);
+  const totalTasksForStats = useMemo(() => tasks.length, [tasks]);
+  
   const overdueTasks = useMemo(() => tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate && t.dueDate < todayStr), [tasks, todayStr]);
   const todaysTasks = useMemo(() => tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate === todayStr), [tasks, todayStr]);
   const todaysHighPriority = useMemo(() => todaysTasks.filter(t => t.priority === Priority.HIGH), [todaysTasks]);
@@ -275,18 +279,52 @@ const App: React.FC = () => {
              </div>
 
              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2"><Layers size={14} /> Weekly Status Distribution</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                    <div className="bg-indigo-600 p-4 rounded-xl flex flex-col justify-between shadow-md shadow-indigo-100">
-                        <span className="text-[10px] font-bold text-indigo-100 uppercase tracking-wider">Active Backlog</span>
-                        <div className="flex items-end justify-between mt-2"><span className="text-3xl font-black text-white">{weeklyFocusCount}</span><Target size={20} className="text-indigo-300" /></div>
+                <div className="flex justify-between items-center mb-6">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <PieChart size={14} className="text-indigo-500" /> Workload & Status Breakdown
+                    </p>
+                    <div className="flex items-center gap-2">
+                         <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                         <span className="text-xs font-bold text-slate-600">{weeklyFocusCount} Active Tasks</span>
                     </div>
-                    {statusSummary.map(s => (
-                        <div key={s.label} className="bg-slate-50 border border-slate-100 p-4 rounded-xl flex flex-col justify-between hover:bg-white hover:border-indigo-100 transition-all group">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider group-hover:text-indigo-500 truncate">{s.label}</span>
-                            <div className="flex items-end justify-between mt-2"><span className="text-3xl font-black text-slate-800">{s.count}</span><div className="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-indigo-400" style={{ backgroundColor: appConfig.itemColors?.[s.label] }} /></div>
-                        </div>
-                    ))}
+                </div>
+
+                {/* Stacked Progress Bar */}
+                <div className="h-4 w-full rounded-full flex overflow-hidden bg-slate-100 mb-6 border border-slate-100">
+                    {statusSummary.map(s => {
+                        const pct = totalTasksForStats > 0 ? (s.count / totalTasksForStats) * 100 : 0;
+                        if (pct === 0) return null;
+                        const color = appConfig.itemColors?.[s.label] || '#94a3b8';
+                        return (
+                            <div 
+                                key={s.label} 
+                                style={{ width: `${pct}%`, backgroundColor: color }} 
+                                className="h-full border-r border-white/20 last:border-0 hover:brightness-110 transition-all relative group"
+                                title={`${s.label}: ${s.count}`}
+                            />
+                        );
+                    })}
+                </div>
+
+                {/* Compact Legend / Metrics */}
+                <div className="flex flex-wrap gap-x-6 gap-y-4">
+                    {statusSummary.map(s => {
+                        const color = appConfig.itemColors?.[s.label] || '#94a3b8';
+                        const percentage = totalTasksForStats > 0 ? Math.round((s.count / totalTasksForStats) * 100) : 0;
+                        
+                        return (
+                            <div key={s.label} className="flex items-center gap-3 pr-6 border-r last:border-0 border-slate-100">
+                                <div className="h-8 w-1 rounded-full" style={{ backgroundColor: color }} />
+                                <div>
+                                    <div className="flex items-baseline gap-1.5">
+                                        <span className="text-xl font-bold text-slate-800">{s.count}</span>
+                                        <span className="text-[10px] font-medium text-slate-400">({percentage}%)</span>
+                                    </div>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{s.label}</span>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
              </div>
 
