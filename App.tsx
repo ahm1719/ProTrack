@@ -252,6 +252,10 @@ const App: React.FC = () => {
     return base.filter(t => t.status === Status.DONE || t.status === Status.ARCHIVED);
   }, [tasks, searchQuery, activeTaskTab]);
 
+  const newObsCount = useMemo(() => observations.filter(o => o.status === ObservationStatus.NEW).length, [observations]);
+  const wipObsCount = useMemo(() => observations.filter(o => o.status === ObservationStatus.REVIEWING).length, [observations]);
+  const showObsMetrics = newObsCount > 0 || wipObsCount > 0;
+
   const handleSelectTask = (id: string) => { setHighlightedTaskId(id); setView(ViewMode.TASKS); };
 
   const getPriorityCardColor = (priority: string) => {
@@ -268,12 +272,32 @@ const App: React.FC = () => {
         return (
           <div className="space-y-6 animate-fade-in">
              <div className="bg-gradient-to-r from-indigo-600 to-purple-700 rounded-2xl p-6 text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-                <div>
-                   <h1 className="text-3xl font-bold flex items-baseline gap-2">
-                      {currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                      <span className="text-indigo-200 font-mono text-lg">CW {getWeekNumber(currentTime)}</span>
-                   </h1>
-                   <p className="text-indigo-100 opacity-80 text-sm">{currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+                <div className="flex flex-col gap-3">
+                   {showObsMetrics && (
+                     <div className="flex items-center gap-3 animate-fade-in">
+                        {newObsCount > 0 && (
+                          <div className="bg-rose-500/20 backdrop-blur-md border border-rose-400/30 px-3 py-1 rounded-lg flex items-center gap-2 shadow-sm transition-all hover:bg-rose-500/30 cursor-default" title={`${newObsCount} New Observations`}>
+                              <div className="w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
+                              <span className="text-[10px] font-bold text-rose-50 uppercase tracking-widest">New Obs</span>
+                              <span className="bg-white text-rose-600 text-[10px] font-black px-1.5 py-0.5 rounded-md shadow-sm">{newObsCount}</span>
+                          </div>
+                        )}
+                        {wipObsCount > 0 && (
+                          <div className="bg-amber-500/20 backdrop-blur-md border border-amber-400/30 px-3 py-1 rounded-lg flex items-center gap-2 shadow-sm transition-all hover:bg-amber-500/30 cursor-default" title={`${wipObsCount} WIP Observations`}>
+                              <div className="w-2 h-2 rounded-full bg-amber-400" />
+                              <span className="text-[10px] font-bold text-amber-50 uppercase tracking-widest">WIP</span>
+                              <span className="bg-white text-amber-600 text-[10px] font-black px-1.5 py-0.5 rounded-md shadow-sm">{wipObsCount}</span>
+                          </div>
+                        )}
+                     </div>
+                   )}
+                   <div>
+                      <h1 className="text-3xl font-bold flex items-baseline gap-2">
+                          {currentTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                          <span className="text-indigo-200 font-mono text-lg">CW {getWeekNumber(currentTime)}</span>
+                      </h1>
+                      <p className="text-indigo-100 opacity-80 text-sm">{currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</p>
+                   </div>
                 </div>
                 <button onClick={async () => { setIsGeneratingReport(true); setShowReportModal(true); try { const r = await generateWeeklySummary(tasks, logs); setGeneratedReport(r); } catch (e: any) { setGeneratedReport(e.message); } finally { setIsGeneratingReport(false); } }} className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-6 py-2.5 rounded-xl transition-all text-sm font-bold border border-white/10 shadow-lg backdrop-blur-sm"><Sparkles size={18} /> Weekly Report</button>
              </div>
