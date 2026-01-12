@@ -14,7 +14,6 @@ import {
   Sparkles, 
   HelpCircle,
   LogOut,
-  CalendarDays,
   Target,
   Layers
 } from 'lucide-react';
@@ -42,7 +41,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V1.6";
+const BUILD_VERSION = "V1.9";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -69,7 +68,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
-  const [activeTab, setActiveTab] = useState<'current' | 'completed'>('current');
+  const [activeTaskTab, setActiveTaskTab] = useState<'current' | 'completed'>('current');
   
   const [currentTime, setCurrentTime] = useState(new Date());
   const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
@@ -184,7 +183,6 @@ const App: React.FC = () => {
   }, [tasks, appConfig.taskStatuses]);
 
   const overdueTasks = useMemo(() => tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate && t.dueDate < todayStr), [tasks, todayStr]);
-  const tasksDueToday = useMemo(() => tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate === todayStr), [tasks, todayStr]);
 
   const weekDays = useMemo(() => {
     const days = [];
@@ -207,9 +205,9 @@ const App: React.FC = () => {
   const filteredTasks = useMemo(() => {
     const q = searchQuery.toLowerCase();
     const base = tasks.filter(t => t.description.toLowerCase().includes(q) || t.displayId.toLowerCase().includes(q));
-    if (activeTab === 'current') return base.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED);
+    if (activeTaskTab === 'current') return base.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED);
     return base.filter(t => t.status === Status.DONE || t.status === Status.ARCHIVED);
-  }, [tasks, searchQuery, activeTab]);
+  }, [tasks, searchQuery, activeTaskTab]);
 
   const renderContent = () => {
     switch (view) {
@@ -221,7 +219,7 @@ const App: React.FC = () => {
                     <div className="flex flex-col gap-4">
                         <div className="flex flex-wrap gap-2">
                             {appConfig.observationStatuses.slice(0, 3).map(s => (
-                                <div key={s} className="bg-white/10 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold border border-white/10 flex items-center gap-2">
+                                <div key={s} className="bg-white/10 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-bold border border-white/10 flex items-center gap-1">
                                     <span className="opacity-70">{s}:</span>
                                     <span>{observations.filter(o => o.status === s).length}</span>
                                 </div>
@@ -245,31 +243,29 @@ const App: React.FC = () => {
                 </div>
              </div>
 
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-1 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Active Backlog</p>
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-indigo-100 text-indigo-600 rounded-2xl">
-                            <Target size={28} />
-                        </div>
-                        <div>
-                            <p className="text-4xl font-black text-slate-800">{weeklyFocusCount}</p>
-                            <p className="text-xs text-slate-500 font-medium">Tasks to focus on</p>
+             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+                    <Layers size={14} /> Weekly Status Distribution
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <div className="bg-indigo-600 p-4 rounded-xl flex flex-col justify-between shadow-md shadow-indigo-100">
+                        <span className="text-[10px] font-bold text-indigo-100 uppercase tracking-wider">Active Backlog</span>
+                        <div className="flex items-end justify-between mt-2">
+                            <span className="text-3xl font-black text-white">{weeklyFocusCount}</span>
+                            <Target size={20} className="text-indigo-300" />
                         </div>
                     </div>
-                </div>
-                <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <Layers size={14} /> Status Distribution
-                    </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {statusSummary.map(s => (
-                            <div key={s.label} className="bg-slate-50 border border-slate-100 p-3 rounded-xl flex items-center justify-between">
-                                <span className="text-xs font-semibold text-slate-600 truncate mr-2">{s.label}</span>
-                                <span className="bg-white px-2 py-0.5 rounded-lg text-xs font-bold shadow-sm border border-slate-100">{s.count}</span>
+                    {statusSummary.map(s => (
+                        <div key={s.label} className="bg-slate-50 border border-slate-100 p-4 rounded-xl flex flex-col justify-between hover:bg-white hover:border-indigo-100 transition-all group">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider group-hover:text-indigo-500 truncate">{s.label}</span>
+                            <div className="flex items-end justify-between mt-2">
+                                <span className="text-3xl font-black text-slate-800">{s.count}</span>
+                                <div className="p-1 bg-white rounded border border-slate-100 shadow-xs">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300 group-hover:bg-indigo-400" />
+                                </div>
                             </div>
-                        ))}
-                    </div>
+                        </div>
+                    ))}
                 </div>
              </div>
 
@@ -279,7 +275,7 @@ const App: React.FC = () => {
                         <AlertTriangle size={18} /> Overdue Items ({overdueTasks.length})
                     </h3>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                        {overdueTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }} onDelete={deleteTask} onAddUpdate={addUpdateToTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} />)}
+                        {overdueTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }} onDelete={deleteTask} onAddUpdate={addUpdateToTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} />)}
                     </div>
                 </div>
              )}
@@ -322,10 +318,10 @@ const App: React.FC = () => {
                 <div className="xl:col-span-2 flex flex-col bg-slate-100/50 rounded-2xl border border-slate-200 overflow-hidden">
                     <div className="bg-white p-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
                         <div className="flex bg-slate-100 p-1 rounded-xl">
-                            <button onClick={() => setActiveTab('current')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'current' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Active Tasks</button>
-                            <button onClick={() => setActiveTab('completed')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTab === 'completed' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Archive & Done</button>
+                            <button onClick={() => setActiveTaskTab('current')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTaskTab === 'current' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Active Tasks</button>
+                            <button onClick={() => setActiveTaskTab('completed')} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${activeTaskTab === 'completed' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Archive & Done</button>
                         </div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">{filteredTasks.length} {activeTab} ITEMS</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">{filteredTasks.length} {activeTaskTab} ITEMS</span>
                     </div>
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
