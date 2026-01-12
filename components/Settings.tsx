@@ -1,5 +1,6 @@
+
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette } from 'lucide-react';
+import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, Upload } from 'lucide-react';
 import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status, HighlightOption } from '../types';
 import { initFirebase } from '../services/firebaseService';
 import { v4 as uuidv4 } from 'uuid';
@@ -281,6 +282,7 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
   const [geminiKey, setGeminiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [configJson, setConfigJson] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const savedKey = localStorage.getItem('protrack_gemini_key');
@@ -309,6 +311,34 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
         onPurgeData(activeTasks, activeLogs);
         alert("Resources freed.");
     }
+  };
+
+  const handleFileRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const content = event.target?.result as string;
+            const parsed = JSON.parse(content);
+            
+            if (!Array.isArray(parsed.tasks) || !Array.isArray(parsed.logs) || !Array.isArray(parsed.observations)) {
+                alert("Invalid backup file format. Missing core data arrays.");
+                return;
+            }
+
+            if (confirm(`Restore Backup Found:\n- ${parsed.tasks.length} Tasks\n- ${parsed.logs.length} Logs\n- ${parsed.observations.length} Observations\n\nWARNING: This will replace your current local data. Proceed?`)) {
+                onImportData(parsed);
+                alert("System restored successfully.");
+            }
+        } catch (error) {
+            console.error("Restore failed", error);
+            alert("Failed to parse backup file.");
+        }
+    };
+    reader.readAsText(file);
+    if (e.target) e.target.value = '';
   };
 
   return (
@@ -436,11 +466,23 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
           </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button onClick={() => { const data = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ tasks, logs, observations }, null, 2)); const link = document.createElement('a'); link.setAttribute("href", data); link.setAttribute("download", `protrack_backup_${new Date().toISOString().split('T')[0]}.json`); link.click(); }} className="flex items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 hover:bg-black transition-all group shadow-xl">
               <Download className="text-indigo-400 group-hover:text-white" />
               <span className="text-sm font-bold uppercase tracking-widest">Download Full System Backup (JSON)</span>
           </button>
+          
+          <button onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-3 p-6 bg-white text-slate-700 rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:text-indigo-600 transition-all group shadow-sm hover:bg-indigo-50">
+              <Upload className="text-slate-400 group-hover:text-indigo-500" />
+              <span className="text-sm font-bold uppercase tracking-widest">Restore from Backup</span>
+          </button>
+          <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept=".json" 
+              onChange={handleFileRestore} 
+          />
       </div>
     </div>
   );
