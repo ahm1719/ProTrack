@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, Upload, Cloud, Check, Wifi, WifiOff, AlertTriangle, Key, Eye, EyeOff, Copy, Smartphone, Sparkles, FileText, RotateCcw, Database, HardDrive, PieChart, List, Plus, X } from 'lucide-react';
-import { Task, DailyLog, Observation, FirebaseConfig, AppConfig } from '../types';
+import { Download, Upload, Cloud, Check, Wifi, WifiOff, AlertTriangle, Key, Eye, EyeOff, Copy, Smartphone, Sparkles, FileText, RotateCcw, Database, HardDrive, PieChart, List, Plus, X, Trash2 } from 'lucide-react';
+import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status } from '../types';
 import { initFirebase } from '../services/firebaseService';
 
 interface SettingsProps {
@@ -12,6 +12,7 @@ interface SettingsProps {
   isSyncEnabled: boolean;
   appConfig: AppConfig;
   onUpdateConfig: (config: AppConfig) => void;
+  onPurgeData: (tasks: Task[], logs: DailyLog[]) => void;
 }
 
 const getSizeInBytes = (obj: any) => {
@@ -56,7 +57,7 @@ const ListEditor = ({ title, items, onUpdate, placeholder }: { title: string, it
     );
 };
 
-const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImportData, onSyncConfigUpdate, isSyncEnabled, appConfig, onUpdateConfig }) => {
+const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImportData, onSyncConfigUpdate, isSyncEnabled, appConfig, onUpdateConfig, onPurgeData }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [geminiKey, setGeminiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
@@ -72,7 +73,22 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
     if (savedConfig) setConfigJson(JSON.stringify(JSON.parse(savedConfig), null, 2));
   }, []);
 
-  const storageStats = { total: getSizeInBytes({ tasks, logs, observations }) };
+  const storageStats = { 
+    total: getSizeInBytes({ tasks, logs, observations }),
+    tasks: getSizeInBytes(tasks),
+    logs: getSizeInBytes(logs),
+    obs: getSizeInBytes(observations)
+  };
+
+  const handlePurge = () => {
+    if (confirm("This will permanently delete ALL Done and Archived tasks and their associated logs from the local database and cloud. This action is irreversible. Continue?")) {
+        const activeTasks = tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED);
+        const activeTaskIds = new Set(activeTasks.map(t => t.id));
+        const activeLogs = logs.filter(l => activeTaskIds.has(l.taskId));
+        onPurgeData(activeTasks, activeLogs);
+        alert("Cleanup complete. Resources freed.");
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-12">
@@ -93,6 +109,47 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
               <ListEditor title="Task Statuses" items={appConfig.taskStatuses} onUpdate={items => onUpdateConfig({...appConfig, taskStatuses: items})} placeholder="Add status..." />
               <ListEditor title="Priorities" items={appConfig.taskPriorities} onUpdate={items => onUpdateConfig({...appConfig, taskPriorities: items})} placeholder="Add priority..." />
               <ListEditor title="Observation Groups" items={appConfig.observationStatuses} onUpdate={items => onUpdateConfig({...appConfig, observationStatuses: items})} placeholder="Add group..." />
+          </div>
+      </section>
+
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b bg-rose-50 flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                  <HardDrive className="text-rose-600" />
+                  <div>
+                      <h2 className="text-lg font-bold text-slate-800">Resource Health</h2>
+                      <p className="text-xs text-slate-500">Monitor and manage storage usage.</p>
+                  </div>
+              </div>
+              <span className="text-lg font-black text-rose-600">{formatBytes(storageStats.total)}</span>
+          </div>
+          <div className="p-6 space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Tasks</span>
+                      <span className="text-sm font-bold text-slate-700">{formatBytes(storageStats.tasks)}</span>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Logs</span>
+                      <span className="text-sm font-bold text-slate-700">{formatBytes(storageStats.logs)}</span>
+                  </div>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Observations</span>
+                      <span className="text-sm font-bold text-slate-700">{formatBytes(storageStats.obs)}</span>
+                  </div>
+              </div>
+              <div className="bg-rose-50/50 p-4 rounded-xl border border-rose-100 flex items-center justify-between">
+                  <div className="flex items-start gap-3">
+                      <AlertTriangle className="text-rose-600 shrink-0 mt-0.5" size={18} />
+                      <div>
+                          <p className="text-xs font-bold text-rose-900">Purge Inactive Data</p>
+                          <p className="text-[10px] text-rose-700">Clears all "Done" and "Archived" items to optimize performance.</p>
+                      </div>
+                  </div>
+                  <button onClick={handlePurge} className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all shadow-md shadow-rose-100 flex items-center gap-2">
+                      <Trash2 size={14} /> Purge
+                  </button>
+              </div>
           </div>
       </section>
 
@@ -135,15 +192,11 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
           </div>
       </section>
 
-      <div className="grid grid-cols-2 gap-4">
-          <button onClick={() => { const data = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ tasks, logs, observations }, null, 2)); const link = document.createElement('a'); link.setAttribute("href", data); link.setAttribute("download", `protrack_backup_${new Date().toISOString().split('T')[0]}.json`); link.click(); }} className="flex flex-col items-center gap-2 p-6 bg-slate-50 rounded-2xl border border-slate-200 hover:bg-white transition-all group">
-              <Download className="text-slate-400 group-hover:text-indigo-600" />
-              <span className="text-xs font-bold text-slate-600">Download Backup</span>
+      <div className="grid grid-cols-1 gap-4">
+          <button onClick={() => { const data = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ tasks, logs, observations }, null, 2)); const link = document.createElement('a'); link.setAttribute("href", data); link.setAttribute("download", `protrack_backup_${new Date().toISOString().split('T')[0]}.json`); link.click(); }} className="flex items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 hover:bg-black transition-all group shadow-xl">
+              <Download className="text-indigo-400 group-hover:text-white" />
+              <span className="text-sm font-bold uppercase tracking-widest">Download Full System Backup (JSON)</span>
           </button>
-          <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col items-center justify-center gap-2">
-              <HardDrive className="text-slate-400" />
-              <span className="text-xs font-bold text-slate-600">Storage Used: {formatBytes(storageStats.total)}</span>
-          </div>
       </div>
     </div>
   );

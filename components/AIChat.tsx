@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, MessageSquare, X, Sparkles, AlertCircle, Bot, User, Plus, Trash2 } from 'lucide-react';
+import { Send, MessageSquare, X, Sparkles, AlertCircle, Bot, User, Plus, Trash2, Edit3 } from 'lucide-react';
 import { Task, DailyLog, ChatMessage } from '../types';
 import { chatWithAI } from '../services/geminiService';
 import { v4 as uuidv4 } from 'uuid';
@@ -38,11 +38,22 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, onOpenSettings }) => {
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatWindowRef = useRef<HTMLDivElement>(null);
   const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
 
   useEffect(() => {
     localStorage.setItem('protrack_chat_tabs', JSON.stringify(tabs));
   }, [tabs]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (chatWindowRef.current && !chatWindowRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -97,7 +108,7 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, onOpenSettings }) => {
     const newId = uuidv4();
     const newTab: ChatTab = {
       id: newId,
-      title: `New Chat ${tabs.length + 1}`,
+      title: `Conversation ${tabs.length + 1}`,
       messages: [{
         id: uuidv4(),
         role: 'model',
@@ -126,28 +137,35 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, onOpenSettings }) => {
     <>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 p-4 rounded-full shadow-xl transition-all duration-300 z-40 flex items-center justify-center ${
-          isOpen ? 'bg-slate-200 text-slate-600 rotate-90' : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:scale-110'
+        className={`fixed bottom-6 right-6 p-4 rounded-full shadow-2xl transition-all duration-300 z-40 flex items-center justify-center ${
+          isOpen ? 'bg-slate-200 text-slate-600 rotate-90 scale-0 opacity-0' : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:scale-110'
         }`}
       >
-        {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
+        <MessageSquare size={24} />
       </button>
 
       <div 
-        className={`fixed bottom-24 right-6 w-[450px] max-w-[calc(100vw-3rem)] bg-white rounded-2xl shadow-2xl border border-slate-200 z-40 flex flex-col transition-all duration-300 origin-bottom-right overflow-hidden ${
+        ref={chatWindowRef}
+        className={`fixed bottom-6 right-6 w-[450px] max-w-[calc(100vw-3rem)] bg-white rounded-3xl shadow-2xl border border-slate-200 z-50 flex flex-col transition-all duration-300 origin-bottom-right overflow-hidden ${
           isOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-90 pointer-events-none translate-y-10'
         }`}
-        style={{ height: '600px', maxHeight: '80vh' }}
+        style={{ height: '650px', maxHeight: '85vh' }}
       >
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 shrink-0">
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-5 shrink-0">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-               <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm text-white"><Sparkles size={20} /></div>
+               <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md text-white"><Sparkles size={20} /></div>
                <div>
-                  <h3 className="font-bold text-white text-sm">ProTrack Assistant</h3>
-                  <p className="text-indigo-100 text-[10px] uppercase tracking-wider font-bold">Multi-thread AI</p>
+                  <h3 className="font-bold text-white text-sm tracking-tight">AI Assistant</h3>
+                  <div className="flex items-center gap-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-indigo-100 text-[9px] uppercase tracking-widest font-black">Connected</span>
+                  </div>
                </div>
             </div>
+            <button onClick={() => setIsOpen(false)} className="text-white/70 hover:text-white transition-colors">
+                <X size={20} />
+            </button>
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar custom-scrollbar">
@@ -155,7 +173,7 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, onOpenSettings }) => {
                   <div 
                     key={tab.id}
                     onClick={() => setActiveTabId(tab.id)}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap group shrink-0 ${activeTabId === tab.id ? 'bg-white text-indigo-700 shadow-sm' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-bold transition-all cursor-pointer whitespace-nowrap group shrink-0 ${activeTabId === tab.id ? 'bg-white text-indigo-700 shadow-md' : 'bg-white/10 text-white hover:bg-white/20'}`}
                   >
                       {editingTabId === tab.id ? (
                           <input 
@@ -175,23 +193,24 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, onOpenSettings }) => {
                       )}
                   </div>
               ))}
-              <button onClick={createNewTab} className="bg-white/10 text-white p-1.5 rounded-lg hover:bg-white/20 transition-colors shrink-0">
+              <button onClick={createNewTab} className="bg-white/10 text-white p-2 rounded-xl hover:bg-white/20 transition-colors shrink-0">
                   <Plus size={14} />
               </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50 custom-scrollbar">
           {activeTab.messages.map((msg) => (
             <div key={msg.id} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${msg.role === 'user' ? 'bg-indigo-100 text-indigo-600' : 'bg-purple-100 text-purple-600'}`}>
-                {msg.role === 'user' ? <User size={14} /> : <Bot size={14} />}
+              <div className={`w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-sm ${msg.role === 'user' ? 'bg-indigo-100 text-indigo-600' : 'bg-purple-100 text-purple-600'}`}>
+                {msg.role === 'user' ? <User size={16} /> : <Bot size={16} />}
               </div>
-              <div className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed whitespace-pre-wrap shadow-sm ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white border border-slate-200 text-slate-700 rounded-tl-none'}`}>
+              <div className={`max-w-[85%] p-4 rounded-3xl text-xs leading-relaxed whitespace-pre-wrap shadow-sm ${msg.role === 'user' ? 'bg-indigo-600 text-white rounded-tr-none' : 'bg-white border border-slate-200 text-slate-700 rounded-tl-none'}`}>
                  {msg.text.includes('API Key is missing') ? (
-                    <div className="space-y-2">
-                        <span className="text-red-500 font-bold flex items-center gap-1"><AlertCircle size={14} /> API Key Missing</span>
-                        <button onClick={onOpenSettings} className="bg-red-50 hover:bg-red-100 text-red-600 w-full py-1.5 rounded-lg text-[10px] font-bold transition-colors">Go to Settings →</button>
+                    <div className="space-y-3">
+                        <span className="text-red-500 font-bold flex items-center gap-1 uppercase tracking-tighter"><AlertCircle size={14} /> Configuration Error</span>
+                        <p className="opacity-70">I need an API key to work correctly. Please set it up in the system configuration.</p>
+                        <button onClick={onOpenSettings} className="bg-red-50 hover:bg-red-100 text-red-600 w-full py-2 rounded-xl text-[10px] font-bold transition-colors">Go to Settings →</button>
                     </div>
                  ) : msg.text}
               </div>
@@ -199,31 +218,34 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, onOpenSettings }) => {
           ))}
           {isLoading && (
             <div className="flex gap-3 animate-pulse">
-               <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center"><Bot size={14} /></div>
-               <div className="bg-white border border-slate-200 px-4 py-3 rounded-2xl rounded-tl-none shadow-sm flex gap-1 items-center">
-                  <div className="w-1.5 h-1.5 bg-slate-300 rounded-full" />
-                  <div className="w-1.5 h-1.5 bg-slate-300 rounded-full" />
-                  <div className="w-1.5 h-1.5 bg-slate-300 rounded-full" />
+               <div className="w-9 h-9 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center"><Bot size={16} /></div>
+               <div className="bg-white border border-slate-200 px-5 py-4 rounded-3xl rounded-tl-none shadow-sm flex gap-1.5 items-center">
+                  <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce" />
+                  <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.2s]" />
+                  <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-bounce [animation-delay:0.4s]" />
                </div>
             </div>
           )}
           <div ref={messagesEndRef} />
         </div>
 
-        <form onSubmit={handleSend} className="p-3 bg-white border-t border-slate-100">
+        <form onSubmit={handleSend} className="p-4 bg-white border-t border-slate-100">
           <div className="relative flex items-center gap-2">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={`Ask ${activeTab.title}...`}
-              className="w-full bg-slate-50 border border-slate-200 rounded-full pl-4 pr-12 py-2.5 text-xs focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+              placeholder={`Send a message to ${activeTab.title}...`}
+              className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-5 pr-14 py-3.5 text-xs focus:ring-4 focus:ring-indigo-50 border-transparent focus:border-indigo-200 outline-none transition-all"
             />
-            <button type="submit" disabled={!input.trim() || isLoading} className="absolute right-1 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 disabled:opacity-30 transition-colors">
-              <Send size={14} />
+            <button type="submit" disabled={!input.trim() || isLoading} className="absolute right-2 top-1/2 -translate-y-1/2 p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-30 transition-all shadow-lg shadow-indigo-100">
+              <Send size={18} />
             </button>
           </div>
-          <div className="text-[9px] text-center text-slate-400 mt-2 font-medium tracking-wide">TAB: {activeTab.title.toUpperCase()}</div>
+          <div className="flex justify-between items-center mt-3 px-1">
+              <div className="text-[9px] text-slate-400 font-bold tracking-widest uppercase">{activeTab.title}</div>
+              <div className="text-[9px] text-slate-300 font-medium">Click outside to close</div>
+          </div>
         </form>
       </div>
     </>
