@@ -43,7 +43,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.0.2";
+const BUILD_VERSION = "V2.0.4";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -78,8 +78,8 @@ const App: React.FC = () => {
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [generatedReport, setGeneratedReport] = useState('');
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [modalError, setModalError] = useState<string | null>(null);
 
-  // New Task Form State - Priority is typed as string to match Task interface
   const [newTaskForm, setNewTaskForm] = useState({
     source: `CW${getWeekNumber(new Date())}`,
     projectId: '',
@@ -157,6 +157,14 @@ const App: React.FC = () => {
 
   const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
+    setModalError(null);
+
+    const isDuplicate = tasks.some(t => t.displayId.toLowerCase() === newTaskForm.displayId.toLowerCase());
+    if (isDuplicate) {
+      setModalError(`Duplicate Display ID: "${newTaskForm.displayId}" already exists.`);
+      return;
+    }
+
     const newTask: Task = {
       ...newTaskForm,
       id: uuidv4(),
@@ -184,6 +192,13 @@ const App: React.FC = () => {
   };
 
   const updateTaskFields = (id: string, fields: Partial<Task>) => {
+    if (fields.displayId) {
+       const isDuplicate = tasks.some(t => t.id !== id && t.displayId.toLowerCase() === fields.displayId?.toLowerCase());
+       if (isDuplicate) {
+          alert(`Error: Display ID "${fields.displayId}" is already taken.`);
+          return;
+       }
+    }
     const updated = tasks.map(t => t.id === id ? { ...t, ...fields } : t);
     persistData(updated, logs, observations, offDays);
   };
@@ -456,6 +471,11 @@ const App: React.FC = () => {
                    <button type="button" onClick={() => setShowNewTaskModal(false)}><X size={20}/></button>
                 </div>
                 <div className="p-6 space-y-4">
+                   {modalError && (
+                     <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-center gap-2 text-xs font-bold">
+                        <AlertTriangle size={16} /> {modalError}
+                     </div>
+                   )}
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Source (CW)</label>

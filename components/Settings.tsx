@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, Upload, Cloud, Check, Wifi, WifiOff, AlertTriangle, Key, Eye, EyeOff, Copy, Smartphone, Sparkles, FileText, RotateCcw, Database, HardDrive, PieChart, List, Plus, X, Trash2 } from 'lucide-react';
+import { Download, Upload, Cloud, Check, Wifi, WifiOff, AlertTriangle, Key, Eye, EyeOff, Copy, Smartphone, Sparkles, FileText, RotateCcw, Database, HardDrive, PieChart, List, Plus, X, Trash2, Edit2 } from 'lucide-react';
 import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status } from '../types';
 import { initFirebase } from '../services/firebaseService';
 
@@ -14,6 +14,8 @@ interface SettingsProps {
   onUpdateConfig: (config: AppConfig) => void;
   onPurgeData: (tasks: Task[], logs: DailyLog[]) => void;
 }
+
+const RESOURCE_LIMIT_BYTES = 1048576; // 1MB limit for free tier sync docs
 
 const getSizeInBytes = (obj: any) => {
     try { return new Blob([JSON.stringify(obj)]).size; } 
@@ -30,28 +32,78 @@ const formatBytes = (bytes: number) => {
 
 const ListEditor = ({ title, items, onUpdate, placeholder }: { title: string, items: string[], onUpdate: (items: string[]) => void, placeholder: string }) => {
     const [newItem, setNewItem] = useState('');
+    const [editingIdx, setEditingIdx] = useState<number | null>(null);
+    const [editValue, setEditValue] = useState('');
+
     const handleAdd = () => {
         if (newItem.trim() && !items.includes(newItem.trim())) {
             onUpdate([...items, newItem.trim()]);
             setNewItem('');
         }
     };
+
+    const handleEditSave = (idx: number) => {
+        if (editValue.trim()) {
+            const newItems = [...items];
+            newItems[idx] = editValue.trim();
+            onUpdate(newItems);
+        }
+        setEditingIdx(null);
+    };
+
     return (
         <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 h-full">
             <h4 className="font-bold text-slate-700 text-[10px] uppercase mb-3 tracking-widest">{title}</h4>
             <div className="flex flex-wrap gap-2 mb-4 min-h-[40px]">
                 {items.map((item, idx) => (
                     <div key={idx} className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 shadow-sm group">
-                        <span>{item}</span>
-                        <button onClick={() => onUpdate(items.filter((_, i) => i !== idx))} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <X size={10} />
-                        </button>
+                        {editingIdx === idx ? (
+                            <input 
+                                autoFocus
+                                className="bg-transparent border-none outline-none w-20 text-indigo-600"
+                                value={editValue}
+                                onChange={e => setEditValue(e.target.value)}
+                                onBlur={() => handleEditSave(idx)}
+                                onKeyDown={e => e.key === 'Enter' && handleEditSave(idx)}
+                            />
+                        ) : (
+                            <>
+                                <span onDoubleClick={() => { setEditingIdx(idx); setEditValue(item); }}>{item}</span>
+                                <button onClick={() => { setEditingIdx(idx); setEditValue(item); }} className="text-slate-300 hover:text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Edit2 size={10} />
+                                </button>
+                                <button onClick={() => onUpdate(items.filter((_, i) => i !== idx))} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <X size={10} />
+                                </button>
+                            </>
+                        )}
                     </div>
                 ))}
             </div>
             <div className="flex gap-2">
                 <input type="text" value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAdd()} placeholder={placeholder} className="flex-1 px-3 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:border-indigo-500 bg-white" />
                 <button onClick={handleAdd} className="bg-indigo-600 text-white p-1.5 rounded-lg hover:bg-indigo-700"><Plus size={14} /></button>
+            </div>
+        </div>
+    );
+};
+
+const ResourceBar = ({ label, current, limit }: { label: string, current: number, limit: number }) => {
+    const percentage = Math.min(100, (current / limit) * 100);
+    const isCritical = percentage > 85;
+    return (
+        <div className="space-y-1">
+            <div className="flex justify-between items-end">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{label}</span>
+                <span className={`text-[10px] font-mono ${isCritical ? 'text-red-600 font-bold' : 'text-slate-400'}`}>
+                    {formatBytes(current)} / {formatBytes(limit)}
+                </span>
+            </div>
+            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div 
+                    className={`h-full transition-all duration-500 rounded-full ${isCritical ? 'bg-red-500' : 'bg-indigo-500'}`} 
+                    style={{ width: `${percentage}%` }}
+                />
             </div>
         </div>
     );
@@ -81,12 +133,12 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
   };
 
   const handlePurge = () => {
-    if (confirm("This will permanently delete ALL Done and Archived tasks and their associated logs from the local database and cloud. This action is irreversible. Continue?")) {
+    if (confirm("This will permanently delete ALL Done and Archived tasks and their associated logs. Continue?")) {
         const activeTasks = tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED);
         const activeTaskIds = new Set(activeTasks.map(t => t.id));
         const activeLogs = logs.filter(l => activeTaskIds.has(l.taskId));
         onPurgeData(activeTasks, activeLogs);
-        alert("Cleanup complete. Resources freed.");
+        alert("Resources freed.");
     }
   };
 
@@ -102,7 +154,7 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
               <List className="text-indigo-600" />
               <div>
                   <h2 className="text-lg font-bold text-slate-800">Classifications & Lists</h2>
-                  <p className="text-xs text-slate-500">Configure status and priority options globally.</p>
+                  <p className="text-xs text-slate-500">Double-click an item to rename it.</p>
               </div>
           </div>
           <div className="p-6 grid md:grid-cols-3 gap-6">
@@ -118,36 +170,30 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
                   <HardDrive className="text-rose-600" />
                   <div>
                       <h2 className="text-lg font-bold text-slate-800">Resource Health</h2>
-                      <p className="text-xs text-slate-500">Monitor and manage storage usage.</p>
+                      <p className="text-xs text-slate-500">Monitoring 1MB sync bucket limits.</p>
                   </div>
               </div>
-              <span className="text-lg font-black text-rose-600">{formatBytes(storageStats.total)}</span>
+              <div className="text-right">
+                <span className="text-lg font-black text-rose-600 block">{formatBytes(storageStats.total)}</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Used of ~5MB Local</span>
+              </div>
           </div>
-          <div className="p-6 space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Tasks</span>
-                      <span className="text-sm font-bold text-slate-700">{formatBytes(storageStats.tasks)}</span>
-                  </div>
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Logs</span>
-                      <span className="text-sm font-bold text-slate-700">{formatBytes(storageStats.logs)}</span>
-                  </div>
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center">
-                      <span className="text-[9px] font-bold text-slate-400 uppercase block mb-1">Observations</span>
-                      <span className="text-sm font-bold text-slate-700">{formatBytes(storageStats.obs)}</span>
-                  </div>
+          <div className="p-6 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <ResourceBar label="Tasks Buffer" current={storageStats.tasks} limit={RESOURCE_LIMIT_BYTES} />
+                  <ResourceBar label="Logs Buffer" current={storageStats.logs} limit={RESOURCE_LIMIT_BYTES} />
+                  <ResourceBar label="Observations Buffer" current={storageStats.obs} limit={RESOURCE_LIMIT_BYTES} />
               </div>
               <div className="bg-rose-50/50 p-4 rounded-xl border border-rose-100 flex items-center justify-between">
                   <div className="flex items-start gap-3">
                       <AlertTriangle className="text-rose-600 shrink-0 mt-0.5" size={18} />
                       <div>
                           <p className="text-xs font-bold text-rose-900">Purge Inactive Data</p>
-                          <p className="text-[10px] text-rose-700">Clears all "Done" and "Archived" items to optimize performance.</p>
+                          <p className="text-[10px] text-rose-700">Clears "Done" and "Archived" items to free up resources.</p>
                       </div>
                   </div>
                   <button onClick={handlePurge} className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all shadow-md shadow-rose-100 flex items-center gap-2">
-                      <Trash2 size={14} /> Purge
+                      <Trash2 size={14} /> Purge Inactive
                   </button>
               </div>
           </div>

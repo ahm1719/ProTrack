@@ -39,6 +39,7 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, onOpenSettings }) => {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatWindowRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
 
   useEffect(() => {
@@ -51,7 +52,11 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, onOpenSettings }) => {
         setIsOpen(false);
       }
     };
-    if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+    if (isOpen) {
+        document.addEventListener('mousedown', handleClickOutside);
+        // Auto focus input when opened
+        setTimeout(() => inputRef.current?.focus(), 100);
+    }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
@@ -232,6 +237,7 @@ const AIChat: React.FC<AIChatProps> = ({ tasks, logs, onOpenSettings }) => {
         <form onSubmit={handleSend} className="p-4 bg-white border-t border-slate-100">
           <div className="relative flex items-center gap-2">
             <input
+              ref={inputRef}
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
