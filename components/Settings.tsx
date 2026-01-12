@@ -1,5 +1,6 @@
+
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, Upload, Cloud, Check, Wifi, WifiOff, AlertTriangle, Key, Eye, EyeOff, Copy, Smartphone, Sparkles, FileText, RotateCcw, Database, HardDrive, PieChart, List, Plus, X, Trash2, Edit2 } from 'lucide-react';
+import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle } from 'lucide-react';
 import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status } from '../types';
 import { initFirebase } from '../services/firebaseService';
 
@@ -15,7 +16,7 @@ interface SettingsProps {
   onPurgeData: (tasks: Task[], logs: DailyLog[]) => void;
 }
 
-const RESOURCE_LIMIT_BYTES = 1048576; // 1MB limit for free tier sync docs
+const RESOURCE_LIMIT_BYTES = 1048576; // 1MB limit
 
 const getSizeInBytes = (obj: any) => {
     try { return new Blob([JSON.stringify(obj)]).size; } 
@@ -25,15 +26,17 @@ const getSizeInBytes = (obj: any) => {
 const formatBytes = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ['Bytes', 'KB', 'MB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
-const ListEditor = ({ title, items, onUpdate, placeholder }: { title: string, items: string[], onUpdate: (items: string[]) => void, placeholder: string }) => {
+const ListEditor = ({ title, items, onUpdate, onRenameTitle, placeholder }: { title: string, items: string[], onUpdate: (items: string[]) => void, onRenameTitle?: (newTitle: string) => void, placeholder: string }) => {
     const [newItem, setNewItem] = useState('');
     const [editingIdx, setEditingIdx] = useState<number | null>(null);
     const [editValue, setEditValue] = useState('');
+    const [isRenamingTitle, setIsRenamingTitle] = useState(false);
+    const [tempTitle, setTempTitle] = useState(title);
 
     const handleAdd = () => {
         if (newItem.trim() && !items.includes(newItem.trim())) {
@@ -51,9 +54,35 @@ const ListEditor = ({ title, items, onUpdate, placeholder }: { title: string, it
         setEditingIdx(null);
     };
 
+    const handleTitleSave = () => {
+        if (tempTitle.trim() && onRenameTitle) {
+            onRenameTitle(tempTitle.trim());
+        }
+        setIsRenamingTitle(false);
+    };
+
     return (
         <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 h-full">
-            <h4 className="font-bold text-slate-700 text-[10px] uppercase mb-3 tracking-widest">{title}</h4>
+            <div className="mb-3">
+                {isRenamingTitle ? (
+                    <input 
+                        autoFocus
+                        className="bg-white border border-indigo-300 rounded px-2 py-0.5 outline-none font-bold text-slate-700 text-[10px] uppercase tracking-widest w-full"
+                        value={tempTitle}
+                        onChange={e => setTempTitle(e.target.value)}
+                        onBlur={handleTitleSave}
+                        onKeyDown={e => e.key === 'Enter' && handleTitleSave()}
+                    />
+                ) : (
+                    <h4 
+                        onDoubleClick={() => setIsRenamingTitle(true)}
+                        className="font-bold text-slate-700 text-[10px] uppercase tracking-widest cursor-pointer hover:text-indigo-600 flex items-center gap-2 group"
+                    >
+                        {title}
+                        <Edit2 size={10} className="opacity-0 group-hover:opacity-100" />
+                    </h4>
+                )}
+            </div>
             <div className="flex flex-wrap gap-2 mb-4 min-h-[40px]">
                 {items.map((item, idx) => (
                     <div key={idx} className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 shadow-sm group">
@@ -110,17 +139,13 @@ const ResourceBar = ({ label, current, limit }: { label: string, current: number
 };
 
 const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImportData, onSyncConfigUpdate, isSyncEnabled, appConfig, onUpdateConfig, onPurgeData }) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [geminiKey, setGeminiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [configJson, setConfigJson] = useState('');
-  const [reportInstruction, setReportInstruction] = useState('');
 
   useEffect(() => {
     const savedKey = localStorage.getItem('protrack_gemini_key');
     if (savedKey) setGeminiKey(savedKey);
-    const savedInstruction = localStorage.getItem('protrack_report_instruction');
-    if (savedInstruction) setReportInstruction(savedInstruction);
     const savedConfig = localStorage.getItem('protrack_firebase_config');
     if (savedConfig) setConfigJson(JSON.stringify(JSON.parse(savedConfig), null, 2));
   }, []);
@@ -154,13 +179,31 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
               <List className="text-indigo-600" />
               <div>
                   <h2 className="text-lg font-bold text-slate-800">Classifications & Lists</h2>
-                  <p className="text-xs text-slate-500">Double-click an item to rename it.</p>
+                  <p className="text-xs text-slate-500">Double-click headers or items to rename them.</p>
               </div>
           </div>
           <div className="p-6 grid md:grid-cols-3 gap-6">
-              <ListEditor title="Task Statuses" items={appConfig.taskStatuses} onUpdate={items => onUpdateConfig({...appConfig, taskStatuses: items})} placeholder="Add status..." />
-              <ListEditor title="Priorities" items={appConfig.taskPriorities} onUpdate={items => onUpdateConfig({...appConfig, taskPriorities: items})} placeholder="Add priority..." />
-              <ListEditor title="Observation Groups" items={appConfig.observationStatuses} onUpdate={items => onUpdateConfig({...appConfig, observationStatuses: items})} placeholder="Add group..." />
+              <ListEditor 
+                title={appConfig.groupLabels?.statuses || "Task Statuses"} 
+                items={appConfig.taskStatuses} 
+                onUpdate={items => onUpdateConfig({...appConfig, taskStatuses: items})} 
+                onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, statuses: newTitle }})}
+                placeholder="Add status..." 
+              />
+              <ListEditor 
+                title={appConfig.groupLabels?.priorities || "Priorities"} 
+                items={appConfig.taskPriorities} 
+                onUpdate={items => onUpdateConfig({...appConfig, taskPriorities: items})} 
+                onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, priorities: newTitle }})}
+                placeholder="Add priority..." 
+              />
+              <ListEditor 
+                title={appConfig.groupLabels?.observations || "Observation Groups"} 
+                items={appConfig.observationStatuses} 
+                onUpdate={items => onUpdateConfig({...appConfig, observationStatuses: items})} 
+                onRenameTitle={newTitle => onUpdateConfig({...appConfig, groupLabels: { ...appConfig.groupLabels!, observations: newTitle }})}
+                placeholder="Add group..." 
+              />
           </div>
       </section>
 
@@ -204,7 +247,6 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
               <Key size={24} className="text-purple-600" />
               <div>
                   <h2 className="text-lg font-bold text-slate-800">AI Report Config</h2>
-                  <p className="text-xs text-slate-500">Gemini Pro credentials and prompt engineering.</p>
               </div>
           </div>
           <div className="p-6 space-y-6">
@@ -215,7 +257,6 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
                   </div>
                   <button onClick={() => { localStorage.setItem('protrack_gemini_key', geminiKey); alert('Saved!'); }} className="px-6 py-2.5 bg-purple-600 text-white rounded-xl text-sm font-bold shadow-md">Save</button>
               </div>
-              <textarea value={reportInstruction} onChange={e => setReportInstruction(e.target.value)} placeholder="Custom instructions for AI summary..." className="w-full h-32 p-4 text-sm border border-slate-300 rounded-xl bg-slate-50 outline-none focus:ring-2 focus:ring-purple-200 resize-none" />
           </div>
       </section>
 

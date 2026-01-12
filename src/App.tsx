@@ -43,7 +43,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.0.5";
+const BUILD_VERSION = "V2.0.6";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -211,6 +211,57 @@ const App: React.FC = () => {
     persistData(updated, [...logs, newLog], observations, offDays);
   };
 
+  const handleEditUpdate = (taskId: string, updateId: string, content: string, timestamp?: string) => {
+    // 1. Update task history
+    const newTasks = tasks.map(t => {
+      if (t.id === taskId) {
+        return {
+          ...t,
+          updates: t.updates.map(u => u.id === updateId ? { ...u, content, timestamp: timestamp || u.timestamp } : u)
+        };
+      }
+      return t;
+    });
+
+    // 2. Try to update the associated daily log if it exists (by content and taskId match)
+    // Note: This is an approximation since IDs aren't synced between the two systems perfectly.
+    // In a real DB they would share an ID.
+    const newLogs = logs.map(l => {
+      if (l.taskId === taskId) {
+        // Find if this log matches the original update content (crude but effective for single users)
+        const originalTask = tasks.find(t => t.id === taskId);
+        const originalUpdate = originalTask?.updates.find(u => u.id === updateId);
+        if (l.content === originalUpdate?.content) {
+            return { 
+                ...l, 
+                content, 
+                date: timestamp ? timestamp.split('T')[0] : l.date 
+            };
+        }
+      }
+      return l;
+    });
+
+    persistData(newTasks, newLogs, observations, offDays);
+  };
+
+  const handleDeleteUpdate = (taskId: string, updateId: string) => {
+    if (!confirm('Delete this history record?')) return;
+    
+    const task = tasks.find(t => t.id === taskId);
+    const update = task?.updates.find(u => u.id === updateId);
+    
+    const newTasks = tasks.map(t => {
+      if (t.id === taskId) {
+        return { ...t, updates: t.updates.filter(u => u.id !== updateId) };
+      }
+      return t;
+    });
+
+    const newLogs = logs.filter(l => !(l.taskId === taskId && l.content === update?.content));
+    persistData(newTasks, newLogs, observations, offDays);
+  };
+
   const deleteTask = (id: string) => {
     if (confirm('Delete task?')) {
       persistData(tasks.filter(t => t.id !== id), logs, observations, offDays);
@@ -343,7 +394,7 @@ const App: React.FC = () => {
                         <AlertTriangle size={18} /> Overdue Items ({overdueTasks.length})
                     </h3>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                        {overdueTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }} onDelete={deleteTask} onAddUpdate={addUpdateToTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} />)}
+                        {overdueTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }} onDelete={deleteTask} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} />)}
                     </div>
                 </div>
              )}
@@ -401,7 +452,7 @@ const App: React.FC = () => {
                     </div>
                     <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {filteredTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => setHighlightedTaskId(t.id)} onDelete={deleteTask} onAddUpdate={addUpdateToTask} autoExpand={t.id === highlightedTaskId} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} />)}
+                            {filteredTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => setHighlightedTaskId(t.id)} onDelete={deleteTask} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} autoExpand={t.id === highlightedTaskId} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} />)}
                         </div>
                         {filteredTasks.length === 0 && (
                             <div className="flex flex-col items-center justify-center py-20 text-slate-300 opacity-50">

@@ -4,7 +4,7 @@ import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCirc
 
 interface TaskCardProps {
   task: Task;
-  onUpdateStatus: (id: string, status: Status) => void;
+  onUpdateStatus: (id: string, status: string) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
   onAddUpdate: (id: string, content: string) => void;
@@ -60,7 +60,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
   }, [autoExpand]);
 
   const getPriorityColor = (p: string) => {
-    // Default mappings for standard priorities, fallback for custom
     if (p === Priority.HIGH) return 'bg-red-100 text-red-800 border-red-200';
     if (p === Priority.MEDIUM) return 'bg-amber-100 text-amber-800 border-amber-200';
     if (p === Priority.LOW) return 'bg-green-100 text-green-800 border-green-200';
@@ -68,7 +67,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   const getStatusColor = (s: string) => {
-    // Default mappings for standard statuses, fallback for custom
     if (s === Status.DONE) return 'bg-emerald-500 text-white';
     if (s === Status.IN_PROGRESS) return 'bg-blue-500 text-white';
     if (s === Status.NOT_STARTED) return 'bg-slate-200 text-slate-600';
@@ -128,6 +126,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
     if (onEditUpdate && editUpdateContent.trim()) {
       let newTimestamp = undefined;
       if (editUpdateDate) {
+         // Create local ISO timestamp
          newTimestamp = new Date(`${editUpdateDate}T12:00:00`).toISOString();
       }
 
@@ -136,7 +135,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
 
-  // Inline Edit Handlers
   const handleFieldClick = (field: string, value: string) => {
     if (isReadOnly || !onUpdateTask) return;
     setEditingField(field);
@@ -165,7 +163,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
       <div className="p-5">
         <div className="flex justify-between items-start mb-3">
           <div className="flex flex-wrap gap-2 items-center">
-             {/* Source (CW) */}
              {editingField === 'source' ? (
                  <input 
                     autoFocus
@@ -179,13 +176,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <span 
                   onClick={() => handleFieldClick('source', task.source)}
                   className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded cursor-pointer hover:bg-slate-200 hover:text-slate-700 transition-colors border border-transparent hover:border-slate-300"
-                  title="Click to Edit Source"
                 >
                   {task.source}
                 </span>
              )}
 
-             {/* Display ID */}
              {editingField === 'displayId' ? (
                  <input 
                     autoFocus
@@ -199,13 +194,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <span 
                   onClick={() => handleFieldClick('displayId', task.displayId)}
                   className="font-mono text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded cursor-pointer hover:bg-indigo-100 transition-colors border border-transparent hover:border-indigo-200"
-                  title="Click to Edit ID"
                 >
                   {task.displayId}
                 </span>
              )}
 
-             {/* Priority */}
              {editingField === 'priority' ? (
                  <select
                     autoFocus
@@ -213,7 +206,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     value={tempValue}
                     onChange={(e) => {
                         setTempValue(e.target.value);
-                        onUpdateTask && onUpdateTask(task.id, { priority: e.target.value as Priority });
+                        onUpdateTask && onUpdateTask(task.id, { priority: e.target.value });
                         setEditingField(null);
                     }}
                     onBlur={() => setEditingField(null)}
@@ -224,7 +217,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <span 
                   onClick={() => handleFieldClick('priority', task.priority)}
                   className={`text-xs px-2 py-1 rounded-full border ${getPriorityColor(task.priority)} font-medium cursor-pointer hover:brightness-95 transition-all`}
-                  title="Click to Change Priority"
                 >
                   {task.priority}
                 </span>
@@ -236,7 +228,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <button 
                   onClick={onNavigate} 
                   className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-medium"
-                  title="Open Task in Board"
                 >
                   Open <ArrowRight size={14} />
                 </button>
@@ -246,7 +237,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <button 
                   onClick={() => onEdit(task)} 
                   className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                  title="Full Edit"
                 >
                   <Edit2 size={16} />
                 </button>
@@ -254,7 +244,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   <button 
                     onClick={() => onDelete(task.id)} 
                     className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Delete Task"
                   >
                     <Trash2 size={16} />
                   </button>
@@ -264,7 +253,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
           </div>
         </div>
 
-        {/* Description */}
         {editingField === 'description' ? (
             <textarea
                 autoFocus
@@ -274,7 +262,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 onChange={(e) => setTempValue(e.target.value)}
                 onBlur={handleFieldSave}
                 onKeyDown={(e) => {
-                    if (e.key === 'Enter' && e.ctrlKey) handleFieldSave(); // Ctrl+Enter to save
+                    if (e.key === 'Enter' && e.ctrlKey) handleFieldSave();
                     if (e.key === 'Escape') setEditingField(null);
                 }}
             />
@@ -282,7 +270,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
             <h3 
               onClick={() => handleFieldClick('description', task.description)}
               className={`text-lg font-semibold text-slate-800 mb-2 leading-tight whitespace-pre-wrap cursor-pointer hover:text-indigo-700 transition-colors border border-transparent hover:border-dashed hover:border-slate-300 rounded p-0.5 -m-0.5 ${isCompleted ? 'line-through text-slate-500' : ''}`}
-              title="Click to Edit Description"
             >
               {task.description}
             </h3>
@@ -290,7 +277,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
         <div className="flex items-center justify-between mt-4">
           <div className="flex items-center gap-4 text-sm text-slate-500">
-            {/* Due Date */}
             <div className="flex items-center gap-1 group relative">
               <Calendar size={14} className={editingField === 'dueDate' ? 'text-indigo-500' : ''} />
               {editingField === 'dueDate' ? (
@@ -310,7 +296,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <span 
                     onClick={() => handleFieldClick('dueDate', task.dueDate)}
                     className="cursor-pointer hover:text-indigo-600 hover:underline decoration-dashed decoration-indigo-300 underline-offset-2"
-                    title="Click to Edit Due Date"
                 >
                     {task.dueDate ? formatDate(task.dueDate) : 'No Date'}
                 </span>
@@ -332,9 +317,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
           ) : (
             <select
               value={task.status}
-              onChange={(e) => onUpdateStatus(task.id, e.target.value as Status)}
+              onChange={(e) => onUpdateStatus(task.id, e.target.value)}
               className={`text-xs font-semibold px-3 py-1.5 rounded-full cursor-pointer border-none outline-none ring-0 ${getStatusColor(task.status)} hover:opacity-90 transition-opacity`}
-              title="Change Status"
             >
               {availableStatuses.map((s) => (
                 <option key={s} value={s} className="bg-white text-slate-800">
@@ -346,7 +330,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
         </div>
       </div>
 
-      {/* Expandable History Section */}
       <div className="border-t border-slate-100">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
@@ -358,7 +341,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
         {isExpanded && (
           <div className="px-5 pb-5 bg-slate-50">
-            {/* Quick Update Input - Hidden in Read Only */}
             {!isReadOnly && (
               <form onSubmit={handleSubmitUpdate} className="mb-4 pt-4">
                 <div className="relative">
@@ -387,15 +369,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
               )}
               {task.updates.slice().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((update) => (
                 <div key={update.id} className="flex gap-3 text-sm group">
-                   
                   <div className="flex-shrink-0 w-24 text-xs text-slate-400 text-right pt-0.5">
-                    {/* Date Display */}
                     {editingUpdateId === update.id ? (
                         <input 
                             type="date"
                             value={editUpdateDate}
                             onChange={(e) => setEditUpdateDate(e.target.value)}
-                            className="w-full text-xs p-1 border border-indigo-300 rounded outline-none"
+                            className="w-full text-[10px] p-1 border border-indigo-300 rounded outline-none bg-white"
                         />
                     ) : (
                         formatDate(update.timestamp)
@@ -411,6 +391,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
                           onChange={(e) => setEditUpdateContent(e.target.value)}
                           className="flex-grow p-2 text-xs border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
                           autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveEditedUpdate(update.id);
+                            if (e.key === 'Escape') cancelEditingUpdate();
+                          }}
                         />
                         <button 
                           onClick={() => saveEditedUpdate(update.id)}
@@ -432,15 +416,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
                         </div>
                         {!isReadOnly && (
                           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {onEditUpdate && (
-                                <button
-                                    onClick={() => startEditingUpdate(update)}
-                                    className="text-slate-400 hover:text-indigo-600 p-1"
-                                    title="Edit Update"
-                                >
-                                    <Edit2 size={12} />
-                                </button>
-                            )}
+                            <button
+                                onClick={() => startEditingUpdate(update)}
+                                className="text-slate-400 hover:text-indigo-600 p-1"
+                                title="Edit Update"
+                            >
+                                <Edit2 size={12} />
+                            </button>
                             {onDeleteUpdate && (
                                 <button
                                     onClick={() => onDeleteUpdate(task.id, update.id)}

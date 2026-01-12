@@ -1,3 +1,4 @@
+
 export enum Priority {
   HIGH = 'High',
   MEDIUM = 'Medium',
@@ -23,12 +24,26 @@ export interface AppConfig {
   taskStatuses: string[];
   taskPriorities: string[];
   observationStatuses: string[];
+  // Labels for the groups themselves
+  groupLabels?: {
+    statuses: string;
+    priorities: string;
+    observations: string;
+  };
+}
+
+export interface TaskAttachment {
+  id: string;
+  name: string;
+  type: string;
+  data: string; // Base64
 }
 
 export interface TaskUpdate {
   id: string;
   timestamp: string; // ISO String
   content: string;
+  attachments?: TaskAttachment[];
 }
 
 export interface Task {

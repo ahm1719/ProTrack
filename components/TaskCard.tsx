@@ -1,13 +1,15 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Task, Status, Priority } from '../types';
-import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight, Archive, X, Save } from 'lucide-react';
+import { Task, Status, Priority, TaskAttachment } from '../types';
+import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight, Archive, X, Save, Paperclip, File, Download as DownloadIcon } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
 
 interface TaskCardProps {
   task: Task;
-  onUpdateStatus: (id: string, status: Status) => void;
+  onUpdateStatus: (id: string, status: string) => void;
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
-  onAddUpdate: (id: string, content: string) => void;
+  onAddUpdate: (id: string, content: string, attachments?: TaskAttachment[]) => void;
   onEditUpdate?: (taskId: string, updateId: string, newContent: string, newTimestamp?: string) => void;
   onDeleteUpdate?: (taskId: string, updateId: string) => void;
   allowDelete?: boolean;
@@ -39,14 +41,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [newUpdate, setNewUpdate] = useState('');
+  const [pendingAttachments, setPendingAttachments] = useState<TaskAttachment[]>([]);
   const cardRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // State for editing existing updates within the history view
   const [editingUpdateId, setEditingUpdateId] = useState<string | null>(null);
   const [editUpdateContent, setEditUpdateContent] = useState('');
   const [editUpdateDate, setEditUpdateDate] = useState('');
 
-  // State for inline field editing
   const [editingField, setEditingField] = useState<string | null>(null);
   const [tempValue, setTempValue] = useState('');
 
@@ -60,7 +62,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
   }, [autoExpand]);
 
   const getPriorityColor = (p: string) => {
-    // Default mappings for standard priorities, fallback for custom
     if (p === Priority.HIGH) return 'bg-red-100 text-red-800 border-red-200';
     if (p === Priority.MEDIUM) return 'bg-amber-100 text-amber-800 border-amber-200';
     if (p === Priority.LOW) return 'bg-green-100 text-green-800 border-green-200';
@@ -68,7 +69,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   const getStatusColor = (s: string) => {
-    // Default mappings for standard statuses, fallback for custom
     if (s === Status.DONE) return 'bg-emerald-500 text-white';
     if (s === Status.IN_PROGRESS) return 'bg-blue-500 text-white';
     if (s === Status.NOT_STARTED) return 'bg-slate-200 text-slate-600';
@@ -95,14 +95,48 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
 
+  // Fixed type issues by ensuring file properties are accessed correctly from the File object
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach((file: File) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            if (event.target?.result) {
+                setPendingAttachments(prev => [...prev, {
+                    id: uuidv4(),
+                    name: file.name,
+                    type: file.type,
+                    data: event.target!.result as string
+                }]);
+            }
+        };
+        reader.readAsDataURL(file);
+    });
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removePendingAttachment = (id: string) => {
+    setPendingAttachments(prev => prev.filter(a => a.id !== id));
+  };
+
+  const downloadAttachment = (att: TaskAttachment) => {
+    const link = document.createElement('a');
+    link.href = att.data;
+    link.download = att.name;
+    link.click();
+  };
+
   const isCompleted = task.status === Status.DONE || task.status === Status.ARCHIVED;
   const canChangeStatus = allowStatusChange ?? !isReadOnly;
 
   const handleSubmitUpdate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newUpdate.trim()) {
-      onAddUpdate(task.id, newUpdate);
+    if (newUpdate.trim() || pendingAttachments.length > 0) {
+      onAddUpdate(task.id, newUpdate, pendingAttachments.length > 0 ? pendingAttachments : undefined);
       setNewUpdate('');
+      setPendingAttachments([]);
     }
   };
 
@@ -136,7 +170,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
 
-  // Inline Edit Handlers
   const handleFieldClick = (field: string, value: string) => {
     if (isReadOnly || !onUpdateTask) return;
     setEditingField(field);
@@ -165,7 +198,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
       <div className="p-5">
         <div className="flex justify-between items-start mb-3">
           <div className="flex flex-wrap gap-2 items-center">
-             {/* Source (CW) */}
              {editingField === 'source' ? (
                  <input 
                     autoFocus
@@ -179,13 +211,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <span 
                   onClick={() => handleFieldClick('source', task.source)}
                   className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded cursor-pointer hover:bg-slate-200 hover:text-slate-700 transition-colors border border-transparent hover:border-slate-300"
-                  title="Click to Edit Source"
                 >
                   {task.source}
                 </span>
              )}
 
-             {/* Display ID */}
              {editingField === 'displayId' ? (
                  <input 
                     autoFocus
@@ -199,13 +229,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <span 
                   onClick={() => handleFieldClick('displayId', task.displayId)}
                   className="font-mono text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded cursor-pointer hover:bg-indigo-100 transition-colors border border-transparent hover:border-indigo-200"
-                  title="Click to Edit ID"
                 >
                   {task.displayId}
                 </span>
              )}
 
-             {/* Priority */}
              {editingField === 'priority' ? (
                  <select
                     autoFocus
@@ -213,7 +241,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                     value={tempValue}
                     onChange={(e) => {
                         setTempValue(e.target.value);
-                        onUpdateTask && onUpdateTask(task.id, { priority: e.target.value as Priority });
+                        onUpdateTask && onUpdateTask(task.id, { priority: e.target.value });
                         setEditingField(null);
                     }}
                     onBlur={() => setEditingField(null)}
@@ -224,7 +252,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <span 
                   onClick={() => handleFieldClick('priority', task.priority)}
                   className={`text-xs px-2 py-1 rounded-full border ${getPriorityColor(task.priority)} font-medium cursor-pointer hover:brightness-95 transition-all`}
-                  title="Click to Change Priority"
                 >
                   {task.priority}
                 </span>
@@ -236,7 +263,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <button 
                   onClick={onNavigate} 
                   className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors flex items-center gap-1 text-xs font-medium"
-                  title="Open Task in Board"
                 >
                   Open <ArrowRight size={14} />
                 </button>
@@ -246,7 +272,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <button 
                   onClick={() => onEdit(task)} 
                   className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                  title="Full Edit"
                 >
                   <Edit2 size={16} />
                 </button>
@@ -254,7 +279,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   <button 
                     onClick={() => onDelete(task.id)} 
                     className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Delete Task"
                   >
                     <Trash2 size={16} />
                   </button>
@@ -264,7 +288,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
           </div>
         </div>
 
-        {/* Description */}
         {editingField === 'description' ? (
             <textarea
                 autoFocus
@@ -274,7 +297,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 onChange={(e) => setTempValue(e.target.value)}
                 onBlur={handleFieldSave}
                 onKeyDown={(e) => {
-                    if (e.key === 'Enter' && e.ctrlKey) handleFieldSave(); // Ctrl+Enter to save
+                    if (e.key === 'Enter' && e.ctrlKey) handleFieldSave();
                     if (e.key === 'Escape') setEditingField(null);
                 }}
             />
@@ -282,7 +305,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
             <h3 
               onClick={() => handleFieldClick('description', task.description)}
               className={`text-lg font-semibold text-slate-800 mb-2 leading-tight whitespace-pre-wrap cursor-pointer hover:text-indigo-700 transition-colors border border-transparent hover:border-dashed hover:border-slate-300 rounded p-0.5 -m-0.5 ${isCompleted ? 'line-through text-slate-500' : ''}`}
-              title="Click to Edit Description"
             >
               {task.description}
             </h3>
@@ -290,7 +312,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
         <div className="flex items-center justify-between mt-4">
           <div className="flex items-center gap-4 text-sm text-slate-500">
-            {/* Due Date */}
             <div className="flex items-center gap-1 group relative">
               <Calendar size={14} className={editingField === 'dueDate' ? 'text-indigo-500' : ''} />
               {editingField === 'dueDate' ? (
@@ -310,7 +331,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <span 
                     onClick={() => handleFieldClick('dueDate', task.dueDate)}
                     className="cursor-pointer hover:text-indigo-600 hover:underline decoration-dashed decoration-indigo-300 underline-offset-2"
-                    title="Click to Edit Due Date"
                 >
                     {task.dueDate ? formatDate(task.dueDate) : 'No Date'}
                 </span>
@@ -332,9 +352,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
           ) : (
             <select
               value={task.status}
-              onChange={(e) => onUpdateStatus(task.id, e.target.value as Status)}
+              onChange={(e) => onUpdateStatus(task.id, e.target.value)}
               className={`text-xs font-semibold px-3 py-1.5 rounded-full cursor-pointer border-none outline-none ring-0 ${getStatusColor(task.status)} hover:opacity-90 transition-opacity`}
-              title="Change Status"
             >
               {availableStatuses.map((s) => (
                 <option key={s} value={s} className="bg-white text-slate-800">
@@ -346,7 +365,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
         </div>
       </div>
 
-      {/* Expandable History Section */}
       <div className="border-t border-slate-100">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
@@ -358,44 +376,74 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
         {isExpanded && (
           <div className="px-5 pb-5 bg-slate-50">
-            {/* Quick Update Input - Hidden in Read Only */}
             {!isReadOnly && (
-              <form onSubmit={handleSubmitUpdate} className="mb-4 pt-4">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Log a quick update..."
-                    value={newUpdate}
-                    onChange={(e) => setNewUpdate(e.target.value)}
-                    className="w-full pl-4 pr-10 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white text-slate-900"
-                    autoFocus={autoExpand}
-                  />
-                  <button
-                    type="submit"
-                    disabled={!newUpdate.trim()}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-600 disabled:text-slate-300 hover:text-indigo-800"
-                  >
-                    <CheckCircle2 size={18} />
-                  </button>
-                </div>
-              </form>
+              <div className="pt-4 space-y-2">
+                <form onSubmit={handleSubmitUpdate}>
+                    <div className="relative">
+                    <input
+                        type="text"
+                        placeholder="Log a quick update..."
+                        value={newUpdate}
+                        onChange={(e) => setNewUpdate(e.target.value)}
+                        className="w-full pl-4 pr-20 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900"
+                        autoFocus={autoExpand}
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="p-1 text-slate-400 hover:text-indigo-600 transition-colors"
+                            title="Attach File"
+                        >
+                            <Paperclip size={18} />
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={!newUpdate.trim() && pendingAttachments.length === 0}
+                            className="p-1 text-indigo-600 disabled:text-slate-300 hover:text-indigo-800"
+                        >
+                            <CheckCircle2 size={18} />
+                        </button>
+                    </div>
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        multiple 
+                        onChange={handleFileChange}
+                    />
+                    </div>
+                </form>
+
+                {pendingAttachments.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                        {pendingAttachments.map(att => (
+                            <div key={att.id} className="flex items-center gap-1 bg-white border border-indigo-200 px-2 py-1 rounded text-[10px] font-bold text-indigo-600 shadow-sm group">
+                                <File size={10} />
+                                <span className="max-w-[100px] truncate">{att.name}</span>
+                                <button onClick={() => removePendingAttachment(att.id)} className="text-slate-300 hover:text-red-500">
+                                    <X size={10} />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+              </div>
             )}
 
-            <div className="space-y-3 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+            <div className="space-y-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar mt-4">
               {task.updates.length === 0 && (
                 <p className="text-center text-xs text-slate-400 py-2">No updates recorded yet.</p>
               )}
               {task.updates.slice().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((update) => (
                 <div key={update.id} className="flex gap-3 text-sm group">
-                   
                   <div className="flex-shrink-0 w-24 text-xs text-slate-400 text-right pt-0.5">
-                    {/* Date Display */}
                     {editingUpdateId === update.id ? (
                         <input 
                             type="date"
                             value={editUpdateDate}
                             onChange={(e) => setEditUpdateDate(e.target.value)}
-                            className="w-full text-xs p-1 border border-indigo-300 rounded outline-none"
+                            className="w-full text-[10px] p-1 border border-indigo-300 rounded outline-none bg-white"
                         />
                     ) : (
                         formatDate(update.timestamp)
@@ -411,6 +459,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
                           onChange={(e) => setEditUpdateContent(e.target.value)}
                           className="flex-grow p-2 text-xs border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
                           autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveEditedUpdate(update.id);
+                            if (e.key === 'Escape') cancelEditingUpdate();
+                          }}
                         />
                         <button 
                           onClick={() => saveEditedUpdate(update.id)}
@@ -426,13 +478,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
                         </button>
                       </div>
                     ) : (
-                      <div className="relative">
-                        <div className="p-2 bg-white rounded-lg border border-slate-200 text-slate-700 shadow-sm text-xs group-hover:pr-14">
-                          {update.content}
-                        </div>
-                        {!isReadOnly && (
-                          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {onEditUpdate && (
+                      <div className="space-y-2">
+                        <div className="relative">
+                            <div className="p-2 bg-white rounded-lg border border-slate-200 text-slate-700 shadow-sm text-xs group-hover:pr-14">
+                            {update.content}
+                            </div>
+                            {!isReadOnly && (
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button
                                     onClick={() => startEditingUpdate(update)}
                                     className="text-slate-400 hover:text-indigo-600 p-1"
@@ -440,17 +492,33 @@ const TaskCard: React.FC<TaskCardProps> = ({
                                 >
                                     <Edit2 size={12} />
                                 </button>
+                                {onDeleteUpdate && (
+                                    <button
+                                        onClick={() => onDeleteUpdate(task.id, update.id)}
+                                        className="text-slate-400 hover:text-red-600 p-1"
+                                        title="Delete Update"
+                                    >
+                                        <Trash2 size={12} />
+                                    </button>
+                                )}
+                            </div>
                             )}
-                            {onDeleteUpdate && (
-                                <button
-                                    onClick={() => onDeleteUpdate(task.id, update.id)}
-                                    className="text-slate-400 hover:text-red-600 p-1"
-                                    title="Delete Update"
-                                >
-                                    <Trash2 size={12} />
-                                </button>
-                            )}
-                          </div>
+                        </div>
+                        
+                        {update.attachments && update.attachments.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {update.attachments.map(att => (
+                                    <button 
+                                        key={att.id}
+                                        onClick={() => downloadAttachment(att)}
+                                        className="flex items-center gap-1.5 bg-slate-100 hover:bg-indigo-50 border border-slate-200 hover:border-indigo-200 px-2 py-1 rounded text-[10px] font-bold text-slate-600 hover:text-indigo-600 transition-all shadow-xs"
+                                        title={`Download ${att.name}`}
+                                    >
+                                        <DownloadIcon size={10} />
+                                        <span className="max-w-[120px] truncate">{att.name}</span>
+                                    </button>
+                                ))}
+                            </div>
                         )}
                       </div>
                     )}
