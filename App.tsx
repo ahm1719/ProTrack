@@ -47,12 +47,12 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.3.1 (WIP FIX)";
+const BUILD_VERSION = "V2.3.2 (TIMELINE LINK)";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
   taskPriorities: Object.values(Priority),
-  observationStatuses: ['New', 'WIP', 'Resolved', 'Archived'], // Updated default to include WIP
+  observationStatuses: ['New', 'WIP', 'Resolved', 'Archived'],
   itemColors: {
     [Priority.HIGH]: '#ef4444',
     [Priority.MEDIUM]: '#f59e0b',
@@ -102,6 +102,8 @@ const App: React.FC = () => {
   
   const [currentTime, setCurrentTime] = useState(new Date());
   const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
+  const [highlightedUpdateMatch, setHighlightedUpdateMatch] = useState<string | null>(null);
+
   const [showReportModal, setShowReportModal] = useState(false);
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [generatedReport, setGeneratedReport] = useState('');
@@ -230,7 +232,6 @@ const App: React.FC = () => {
       t.displayId.toLowerCase().includes(q)
     );
 
-    // Calculate end of current week (Sunday)
     const today = new Date();
     const dayOfWeek = today.getDay(); // 0 is Sunday
     const distanceToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
@@ -256,7 +257,6 @@ const App: React.FC = () => {
   }, [tasks, searchQuery, activeTaskTab]);
 
   const newObsCount = useMemo(() => observations.filter(o => o.status === 'New').length, [observations]);
-  // Updated WIP check to include 'WIP', 'Reviewing' and 'In Progress' to cover various user configurations
   const wipObsCount = useMemo(() => observations.filter(o => ['WIP', 'Reviewing', 'In Progress'].includes(o.status)).length, [observations]);
   const resolvedObsCount = useMemo(() => observations.filter(o => ['Resolved', 'Done', 'Completed'].includes(o.status)).length, [observations]);
   
@@ -270,6 +270,39 @@ const App: React.FC = () => {
       backgroundColor: `${color}10`, 
       borderColor: `${color}40`,     
     };
+  };
+
+  const handleLogClick = (log: DailyLog) => {
+    const task = tasks.find(t => t.id === log.taskId);
+    if (!task) return;
+
+    // Determine which tab the task is currently in
+    const isDone = task.status === Status.DONE || task.status === Status.ARCHIVED;
+    let targetTab: 'current' | 'future' | 'completed' = 'current';
+
+    if (isDone) {
+       targetTab = 'completed';
+    } else {
+       const today = new Date();
+       const dayOfWeek = today.getDay();
+       const distanceToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+       const endOfWeek = new Date(today);
+       endOfWeek.setDate(today.getDate() + distanceToSunday);
+       const endOfWeekStr = endOfWeek.toISOString().split('T')[0];
+       
+       if (task.dueDate && task.dueDate > endOfWeekStr) {
+          targetTab = 'future';
+       } else {
+          targetTab = 'current';
+       }
+    }
+
+    setActiveTaskTab(targetTab);
+    setHighlightedTaskId(task.id);
+    setHighlightedUpdateMatch(log.content);
+    
+    // Ensure we are in Tasks View
+    setView(ViewMode.TASKS);
   };
 
   const renderContent = () => {
@@ -487,7 +520,25 @@ const App: React.FC = () => {
                     </div>
                     <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {filteredTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => setHighlightedTaskId(t.id)} onDelete={deleteTask} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} autoExpand={t.id === highlightedTaskId} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} isDailyView={true} itemColors={appConfig.itemColors} />)}
+                            {filteredTasks.map(t => (
+                                <TaskCard 
+                                    key={t.id} 
+                                    task={t} 
+                                    onUpdateStatus={updateTaskStatus} 
+                                    onEdit={() => setHighlightedTaskId(t.id)} 
+                                    onDelete={deleteTask} 
+                                    onAddUpdate={addUpdateToTask} 
+                                    onEditUpdate={handleEditUpdate} 
+                                    onDeleteUpdate={handleDeleteUpdate} 
+                                    autoExpand={t.id === highlightedTaskId} 
+                                    highlightMatchingContent={t.id === highlightedTaskId ? highlightedUpdateMatch || undefined : undefined}
+                                    availableStatuses={appConfig.taskStatuses} 
+                                    availablePriorities={appConfig.taskPriorities} 
+                                    onUpdateTask={updateTaskFields} 
+                                    isDailyView={true} 
+                                    itemColors={appConfig.itemColors} 
+                                />
+                            ))}
                         </div>
                     </div>
                 </div>
@@ -511,6 +562,7 @@ const App: React.FC = () => {
                                     persistData(tasks, logs.filter(l => l.id !== logId), observations, offDays);
                                 }
                             }}
+                            onLogClick={handleLogClick}
                             searchQuery={searchQuery}
                         />
                     </div>

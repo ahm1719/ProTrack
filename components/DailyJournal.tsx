@@ -9,6 +9,7 @@ interface DailyJournalProps {
   onUpdateTask: (taskId: string, updates: { status?: Status; dueDate?: string }) => void;
   onEditLog: (logId: string, taskId: string, content: string, date: string) => void;
   onDeleteLog: (logId: string) => void;
+  onLogClick?: (log: DailyLog) => void;
   initialTaskId?: string;
   offDays?: string[];
   onToggleOffDay?: (date: string) => void;
@@ -137,7 +138,7 @@ const MiniCalendar = ({ selectedDate, onSelectDate, offDays }: MiniCalendarProps
   );
 };
 
-const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUpdateTask, onEditLog, onDeleteLog, offDays = [], onToggleOffDay, searchQuery = '' }) => {
+const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUpdateTask, onEditLog, onDeleteLog, onLogClick, offDays = [], onToggleOffDay, searchQuery = '' }) => {
   const [entryDate, setEntryDate] = useState<string>(new Date().toLocaleDateString('en-CA'));
   const [logContent, setLogContent] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState<string>('');
@@ -264,7 +265,10 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
                         return (
                             <div key={log.id} className="relative pl-6 group">
                             <div className="absolute -left-[7px] top-3 w-3 h-3 rounded-full bg-white border-2 border-slate-300 group-hover:border-indigo-500 transition-colors"></div>
-                            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative">
+                            <div 
+                                onClick={() => !isEditing && onLogClick && onLogClick(log)}
+                                className={`bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-all relative ${!isEditing && 'cursor-pointer hover:border-indigo-300 hover:scale-[1.01]'}`}
+                            >
                                 {isEditing ? (
                                     <div className="space-y-2">
                                         <div className="grid grid-cols-2 gap-2">
@@ -285,8 +289,8 @@ const DailyJournal: React.FC<DailyJournalProps> = ({ tasks, logs, onAddLog, onUp
                                         {task && <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600 mb-1">{task.displayId}</span>}
                                         <p className="text-slate-700 text-xs leading-relaxed whitespace-pre-wrap">{log.content}</p>
                                         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => startEditLog(log)} className="p-1 text-slate-400 hover:text-indigo-600"><Edit2 size={12} /></button>
-                                            <button onClick={() => onDeleteLog(log.id)} className="p-1 text-slate-400 hover:text-red-600"><Trash2 size={12} /></button>
+                                            <button onClick={(e) => { e.stopPropagation(); startEditLog(log); }} className="p-1 text-slate-400 hover:text-indigo-600"><Edit2 size={12} /></button>
+                                            <button onClick={(e) => { e.stopPropagation(); onDeleteLog(log.id); }} className="p-1 text-slate-400 hover:text-red-600"><Trash2 size={12} /></button>
                                         </div>
                                     </>
                                 )}

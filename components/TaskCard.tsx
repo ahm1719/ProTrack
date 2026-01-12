@@ -17,6 +17,7 @@ interface TaskCardProps {
   onNavigate?: () => void;
   onUpdateTask?: (id: string, fields: Partial<Task>) => void;
   autoExpand?: boolean;
+  highlightMatchingContent?: string;
   availableStatuses?: string[];
   availablePriorities?: string[];
   isDailyView?: boolean;
@@ -38,6 +39,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   onNavigate,
   onUpdateTask,
   autoExpand = false,
+  highlightMatchingContent,
   availableStatuses = Object.values(Status),
   availablePriorities = Object.values(Priority),
   isDailyView = false,
@@ -52,6 +54,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const cardRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const taskFileInputRef = useRef<HTMLInputElement>(null);
+  const matchingUpdateRef = useRef<HTMLDivElement>(null);
   
   const [editingUpdateId, setEditingUpdateId] = useState<string | null>(null);
   const [editUpdateContent, setEditUpdateContent] = useState('');
@@ -69,6 +72,14 @@ const TaskCard: React.FC<TaskCardProps> = ({
       }, 300);
     }
   }, [autoExpand]);
+
+  useEffect(() => {
+    if (isExpanded && highlightMatchingContent && matchingUpdateRef.current) {
+        setTimeout(() => {
+            matchingUpdateRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 400); // Slight delay to ensure expand animation finishes
+    }
+  }, [isExpanded, highlightMatchingContent]);
 
   const latestUpdate = task.updates.length > 0 
     ? [...task.updates].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]
@@ -266,37 +277,43 @@ const TaskCard: React.FC<TaskCardProps> = ({
             )}
 
             <div className="space-y-3 max-h-80 overflow-y-auto pr-1 custom-scrollbar mt-4">
-              {task.updates.slice().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((update) => (
-                <div key={update.id} className="flex gap-3 text-sm group">
-                  <div className="flex-shrink-0 w-24 text-xs text-slate-400 text-right pt-0.5">
-                    {editingUpdateId === update.id ? <input type="date" value={editUpdateDate} onChange={(e) => setEditUpdateDate(e.target.value)} className="w-full text-[10px] p-1 border border-indigo-300 rounded outline-none bg-white" /> : formatDate(update.timestamp)}
-                  </div>
-                  <div className="flex-grow">
-                    {editingUpdateId === update.id ? (
-                      <div className="space-y-2">
-                        <textarea autoFocus rows={3} value={editUpdateContent} onChange={(e) => setEditUpdateContent(e.target.value)} className="w-full p-2 text-xs border border-indigo-300 rounded-lg outline-none bg-white resize-none" />
-                        <div className="flex justify-between items-center">
-                           <div className="flex gap-1.5">{updateHighlightOptions.map((opt) => <button key={opt.id} type="button" onClick={() => setEditHighlight(opt.color)} className={`w-3.5 h-3.5 rounded-full border ${editHighlight === opt.color ? 'ring-1 ring-indigo-500' : 'border-slate-200'}`} style={{ backgroundColor: opt.color }} title={opt.label} />)}<button onClick={() => setEditHighlight('')} className="text-[9px] text-slate-400 hover:underline">None</button></div>
-                           <div className="flex gap-2"><button onClick={() => saveEditedUpdate(update.id)} className="p-1.5 bg-emerald-600 text-white rounded"><Save size={12} /></button><button onClick={cancelEditingUpdate} className="p-1.5 bg-slate-200 text-slate-600 rounded"><X size={12} /></button></div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="relative">
-                        <div className="p-2 bg-white rounded-lg border border-slate-200 text-slate-700 shadow-sm text-xs group-hover:pr-14 whitespace-pre-wrap leading-relaxed" style={update.highlightColor ? { borderLeft: `4px solid ${update.highlightColor}`, backgroundColor: `${update.highlightColor}05` } : {}}>
-                          {update.content}
-                        </div>
-                        {!isReadOnly && (
-                          <div className="absolute right-2 top-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => startEditingUpdate(update)} className="text-slate-400 hover:text-indigo-600 p-1"><Edit2 size={12} /></button>
-                            {onDeleteUpdate && <button onClick={() => onDeleteUpdate(task.id, update.id)} className="text-slate-400 hover:text-red-600 p-1"><Trash2 size={12} /></button>}
+              {task.updates.slice().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).map((update) => {
+                const isMatch = highlightMatchingContent && update.content === highlightMatchingContent;
+                return (
+                  <div key={update.id} className="flex gap-3 text-sm group" ref={isMatch ? matchingUpdateRef : null}>
+                    <div className="flex-shrink-0 w-24 text-xs text-slate-400 text-right pt-0.5">
+                      {editingUpdateId === update.id ? <input type="date" value={editUpdateDate} onChange={(e) => setEditUpdateDate(e.target.value)} className="w-full text-[10px] p-1 border border-indigo-300 rounded outline-none bg-white" /> : formatDate(update.timestamp)}
+                    </div>
+                    <div className="flex-grow">
+                      {editingUpdateId === update.id ? (
+                        <div className="space-y-2">
+                          <textarea autoFocus rows={3} value={editUpdateContent} onChange={(e) => setEditUpdateContent(e.target.value)} className="w-full p-2 text-xs border border-indigo-300 rounded-lg outline-none bg-white resize-none" />
+                          <div className="flex justify-between items-center">
+                            <div className="flex gap-1.5">{updateHighlightOptions.map((opt) => <button key={opt.id} type="button" onClick={() => setEditHighlight(opt.color)} className={`w-3.5 h-3.5 rounded-full border ${editHighlight === opt.color ? 'ring-1 ring-indigo-500' : 'border-slate-200'}`} style={{ backgroundColor: opt.color }} title={opt.label} />)}<button onClick={() => setEditHighlight('')} className="text-[9px] text-slate-400 hover:underline">None</button></div>
+                            <div className="flex gap-2"><button onClick={() => saveEditedUpdate(update.id)} className="p-1.5 bg-emerald-600 text-white rounded"><Save size={12} /></button><button onClick={cancelEditingUpdate} className="p-1.5 bg-slate-200 text-slate-600 rounded"><X size={12} /></button></div>
                           </div>
-                        )}
-                        {update.attachments && <div className="flex flex-wrap gap-2 mt-2">{update.attachments.map(att => <button key={att.id} onClick={() => downloadAttachment(att)} className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded text-[10px] font-bold"><DownloadIcon size={10} /><span className="truncate max-w-[100px]">{att.name}</span></button>)}</div>}
-                      </div>
-                    )}
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <div 
+                            className={`p-2 rounded-lg border text-slate-700 shadow-sm text-xs group-hover:pr-14 whitespace-pre-wrap leading-relaxed transition-all duration-300 ${isMatch ? 'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-200' : 'bg-white border-slate-200'}`}
+                            style={update.highlightColor ? { borderLeft: `4px solid ${update.highlightColor}`, backgroundColor: `${update.highlightColor}05` } : {}}
+                          >
+                            {update.content}
+                          </div>
+                          {!isReadOnly && (
+                            <div className="absolute right-2 top-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => startEditingUpdate(update)} className="text-slate-400 hover:text-indigo-600 p-1"><Edit2 size={12} /></button>
+                              {onDeleteUpdate && <button onClick={() => onDeleteUpdate(task.id, update.id)} className="text-slate-400 hover:text-red-600 p-1"><Trash2 size={12} /></button>}
+                            </div>
+                          )}
+                          {update.attachments && <div className="flex flex-wrap gap-2 mt-2">{update.attachments.map(att => <button key={att.id} onClick={() => downloadAttachment(att)} className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded text-[10px] font-bold"><DownloadIcon size={10} /><span className="truncate max-w-[100px]">{att.name}</span></button>)}</div>}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
