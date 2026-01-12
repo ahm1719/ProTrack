@@ -45,7 +45,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.1.5";
+const BUILD_VERSION = "V2.1.6 (BASELINE)";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -227,6 +227,14 @@ const App: React.FC = () => {
 
   const handleSelectTask = (id: string) => { setHighlightedTaskId(id); setView(ViewMode.TASKS); };
 
+  const getPriorityCardColor = (priority: string) => {
+    const color = appConfig.itemColors?.[priority] || '#cbd5e1';
+    return {
+      backgroundColor: `${color}10`, // 10% opacity
+      borderColor: `${color}40`,     // 40% opacity
+    };
+  };
+
   const renderContent = () => {
     switch (view) {
       case ViewMode.DASHBOARD:
@@ -336,15 +344,26 @@ const App: React.FC = () => {
                             {d === todayStr && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">TODAY</span>}
                         </div>
                         <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                            {weekTasks[d]?.length ? weekTasks[d].map(t => (
-                                <div key={t.id} onClick={() => setHighlightedTaskId(t.id)} className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group ${t.status === Status.DONE ? 'bg-emerald-50 opacity-60' : 'bg-white'}`}>
-                                    <div className="flex justify-between items-center mb-1">
-                                      <span className="font-mono font-bold">{t.displayId}</span>
-                                      {t.status === Status.DONE ? <CheckCircle2 size={12} className="text-emerald-600" /> : <Clock size={12} className="text-blue-600" />}
+                            {weekTasks[d]?.length ? weekTasks[d].map(t => {
+                                const priorityStyle = getPriorityCardColor(t.priority);
+                                return (
+                                    <div 
+                                      key={t.id} 
+                                      onClick={() => setHighlightedTaskId(t.id)} 
+                                      style={priorityStyle}
+                                      className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group ${t.status === Status.DONE ? 'bg-emerald-50 opacity-60' : ''}`}
+                                    >
+                                        <div className="flex justify-between items-center mb-1">
+                                          <div className="flex items-center gap-1.5">
+                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: appConfig.itemColors?.[t.priority] }} />
+                                            <span className="font-mono font-bold">{t.displayId}</span>
+                                          </div>
+                                          {t.status === Status.DONE ? <CheckCircle2 size={12} className="text-emerald-600" /> : <Clock size={12} className="text-blue-600" />}
+                                        </div>
+                                        <p className={`line-clamp-2 leading-tight ${t.status === Status.DONE ? 'line-through opacity-60' : ''}`}>{t.description}</p>
                                     </div>
-                                    <p className={`line-clamp-2 leading-tight ${t.status === Status.DONE ? 'line-through opacity-60' : ''}`}>{t.description}</p>
-                                </div>
-                            )) : <div className="h-full flex items-center justify-center text-[10px] text-slate-300 italic">No deadlines</div>}
+                                );
+                            }) : <div className="h-full flex items-center justify-center text-[10px] text-slate-300 italic">No deadlines</div>}
                         </div>
                     </div>
                 ))}
@@ -361,7 +380,7 @@ const App: React.FC = () => {
                     </div>
                     <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {filteredTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => setHighlightedTaskId(t.id)} onDelete={deleteTask} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} autoExpand={t.id === highlightedTaskId} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} isDailyView={true} itemColors={appConfig.itemColors} updateHighlightOptions={appConfig.updateHighlightOptions} />)}
+                            {filteredTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => setHighlightedTaskId(t.id)} onDelete={deleteTask} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onUpdateTask={updateTaskFields} isDailyView={true} itemColors={appConfig.itemColors} updateHighlightOptions={appConfig.updateHighlightOptions} />)}
                         </div>
                     </div>
                 </div>
