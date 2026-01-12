@@ -45,7 +45,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.1.8 (FUTURE TABS)";
+const BUILD_VERSION = "V2.2.0 (DASHBOARD UPDATE)";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -211,6 +211,8 @@ const App: React.FC = () => {
   const weeklyFocusCount = useMemo(() => tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED).length, [tasks]);
   const statusSummary = useMemo(() => appConfig.taskStatuses.map(s => ({ label: s, count: tasks.filter(t => t.status === s).length })), [tasks, appConfig.taskStatuses]);
   const overdueTasks = useMemo(() => tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate && t.dueDate < todayStr), [tasks, todayStr]);
+  const todaysTasks = useMemo(() => tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate === todayStr), [tasks, todayStr]);
+  const todaysHighPriority = useMemo(() => todaysTasks.filter(t => t.priority === Priority.HIGH), [todaysTasks]);
   const weekDays = useMemo(() => { const days = []; for (let i = 0; i < 7; i++) { const d = new Date(); d.setDate(d.getDate() + i); days.push(d.toLocaleDateString('en-CA')); } return days; }, []);
   const weekTasks = useMemo(() => { const map: Record<string, Task[]> = {}; weekDays.forEach(d => { map[d] = tasks.filter(t => t.dueDate === d); }); return map; }, [tasks, weekDays]);
   
@@ -315,6 +317,43 @@ const App: React.FC = () => {
                             );
                         })}
                     </div>
+                </div>
+             )}
+
+             {todaysTasks.length > 0 && (
+                <div className="bg-orange-50 border border-orange-100 rounded-2xl p-6">
+                    <h3 className="text-orange-800 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider"><Calendar size={18} /> Today's Tasks ({todaysTasks.length} Due)</h3>
+                    {todaysHighPriority.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {todaysHighPriority.map(t => {
+                                const pColor = appConfig.itemColors?.[t.priority] || '#64748b';
+                                const sColor = appConfig.itemColors?.[t.status] || '#64748b';
+                                return (
+                                    <div key={t.id} onClick={() => handleSelectTask(t.id)} className="bg-white border border-orange-200 rounded-xl p-4 flex flex-col gap-3 cursor-pointer hover:border-orange-400 transition-all shadow-sm group">
+                                        <div className="flex justify-between items-start">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-mono text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-100">{t.displayId}</span>
+                                                <div className="h-4 w-px bg-slate-200"></div>
+                                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded" style={{ backgroundColor: `${pColor}10`, color: pColor, border: `1px solid ${pColor}30` }}>{t.priority}</span>
+                                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded text-white" style={{ backgroundColor: sColor }}>{t.status}</span>
+                                            </div>
+                                            <ArrowRight size={16} className="text-slate-300 group-hover:text-orange-500 transition-colors" />
+                                        </div>
+                                        <h4 className="text-sm font-bold text-slate-800 line-clamp-1 group-hover:text-orange-600">{t.description}</h4>
+                                        <div className="mt-auto pt-2 border-t border-slate-50 flex justify-between items-center">
+                                            <span className="text-[10px] font-bold text-orange-400 flex items-center gap-1"><Clock size={10} /> Due Today</span>
+                                            <span className="text-[10px] font-medium text-slate-400 underline group-hover:text-indigo-600">Open in board</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2 text-orange-600/70 text-xs font-bold bg-orange-100/50 p-3 rounded-lg border border-orange-200/50">
+                           <CheckCircle2 size={14} />
+                           <span>You have {todaysTasks.length} tasks due today, but no High Priority items. Good job keeping the critical path clear!</span>
+                        </div>
+                    )}
                 </div>
              )}
           </div>
