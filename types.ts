@@ -43,6 +43,9 @@ export interface AppConfig {
     priorities: string;
     observations: string;
   };
+  // Backup Configuration
+  backupIntervalMinutes?: number; // 0 = disabled
+  lastBackupPathName?: string; // Just for display purposes
 }
 
 export interface TaskAttachment {

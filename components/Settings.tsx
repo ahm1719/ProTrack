@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, Upload } from 'lucide-react';
+import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, Upload, FolderOpen, Clock, CheckCircle2 } from 'lucide-react';
 import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status, HighlightOption } from '../types';
 import { initFirebase } from '../services/firebaseService';
 import { v4 as uuidv4 } from 'uuid';
@@ -15,6 +15,11 @@ interface SettingsProps {
   appConfig: AppConfig;
   onUpdateConfig: (config: AppConfig) => void;
   onPurgeData: (tasks: Task[], logs: DailyLog[]) => void;
+  
+  // Backup Props
+  onSelectBackupFolder: () => void;
+  backupDirectoryName: string | null;
+  lastBackupTime: Date | null;
 }
 
 const RESOURCE_LIMIT_BYTES = 1048576; // 1MB limit
@@ -296,7 +301,11 @@ const ResourceBar = ({ label, current, limit }: { label: string, current: number
     );
 };
 
-const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, offDays, onImportData, onSyncConfigUpdate, isSyncEnabled, appConfig, onUpdateConfig, onPurgeData }) => {
+const Settings: React.FC<SettingsProps> = ({ 
+    tasks, logs, observations, offDays, 
+    onImportData, onSyncConfigUpdate, isSyncEnabled, appConfig, onUpdateConfig, onPurgeData,
+    onSelectBackupFolder, backupDirectoryName, lastBackupTime
+}) => {
   const [geminiKey, setGeminiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [configJson, setConfigJson] = useState('');
@@ -385,6 +394,71 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, offDays,
         <h1 className="text-3xl font-bold text-slate-900 tracking-tight">System Settings</h1>
         <p className="text-slate-500 text-sm">Manage classifications, AI keys, and cloud synchronization.</p>
       </div>
+
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b bg-amber-50 flex items-center gap-3">
+              <FolderOpen size={24} className="text-amber-600" />
+              <div>
+                  <h2 className="text-lg font-bold text-slate-800">Local Backup Automation</h2>
+                  <p className="text-xs text-slate-500">Automatically save JSON backups to a specific folder on your computer.</p>
+              </div>
+          </div>
+          <div className="p-6 space-y-6">
+              <div className="flex flex-col md:flex-row gap-6 items-start">
+                  <div className="flex-1 space-y-4">
+                      <div className="flex items-center gap-3">
+                          <button 
+                            onClick={onSelectBackupFolder}
+                            className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-md shadow-amber-100 flex items-center gap-2 transition-all"
+                          >
+                              <FolderOpen size={16} />
+                              {backupDirectoryName ? 'Change Folder' : 'Select Backup Folder'}
+                          </button>
+                          {backupDirectoryName && (
+                              <div className="flex items-center gap-2 bg-amber-50 px-3 py-2 rounded-lg border border-amber-100 text-amber-800 text-xs font-bold">
+                                  <CheckCircle2 size={14} />
+                                  Active: {backupDirectoryName}
+                              </div>
+                          )}
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                          <label className="text-xs font-bold text-slate-500 uppercase tracking-widest">Frequency:</label>
+                          <select 
+                            value={appConfig.backupIntervalMinutes || 0}
+                            onChange={(e) => onUpdateConfig({...appConfig, backupIntervalMinutes: parseInt(e.target.value)})}
+                            className="bg-slate-50 border border-slate-200 rounded-lg text-sm px-3 py-1.5 outline-none focus:ring-2 focus:ring-amber-200"
+                          >
+                              <option value={0}>Disabled</option>
+                              <option value={15}>Every 15 Minutes</option>
+                              <option value={30}>Every 30 Minutes</option>
+                              <option value={60}>Every Hour</option>
+                          </select>
+                      </div>
+                  </div>
+
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 w-full md:w-64">
+                      <div className="flex items-center gap-2 text-slate-400 mb-2">
+                          <Clock size={16} />
+                          <span className="text-xs font-bold uppercase">Last Backup</span>
+                      </div>
+                      {lastBackupTime ? (
+                          <div className="text-slate-800 font-mono font-bold text-lg">
+                              {lastBackupTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              <span className="text-xs text-slate-400 block font-sans font-normal">
+                                  {lastBackupTime.toLocaleDateString()}
+                              </span>
+                          </div>
+                      ) : (
+                          <span className="text-slate-300 text-sm italic">Never ran this session</span>
+                      )}
+                  </div>
+              </div>
+              <div className="text-[10px] text-slate-400 bg-amber-50/50 p-3 rounded-lg border border-amber-50/50">
+                  <p><strong>Note on Browser Security:</strong> Due to security rules, you must re-select the folder if you fully close the browser tab. While the tab remains open, backups will occur automatically in the background.</p>
+              </div>
+          </div>
+      </section>
 
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b bg-indigo-50 flex items-center gap-3">

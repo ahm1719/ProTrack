@@ -20,7 +20,8 @@ import {
   Briefcase,
   ArrowRight,
   Activity,
-  PieChart
+  PieChart,
+  HardDrive
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -46,8 +47,9 @@ import UserManual from './components/UserManual';
 
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
+import { selectBackupFolder, performBackup } from './services/backupService';
 
-const BUILD_VERSION = "V2.3.5 (FIXED)";
+const BUILD_VERSION = "V2.4.0 (AUTO-BACKUP)";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -81,7 +83,8 @@ const DEFAULT_CONFIG: AppConfig = {
     statuses: "#6366f1",
     priorities: "#f59e0b",
     observations: "#8b5cf6"
-  }
+  },
+  backupIntervalMinutes: 0
 };
 
 const getWeekNumber = (d: Date): number => {
@@ -114,6 +117,10 @@ const App: React.FC = () => {
   const [generatedReport, setGeneratedReport] = useState('');
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
+
+  // Backup State
+  const [backupDirHandle, setBackupDirHandle] = useState<any | null>(null);
+  const [lastBackupTime, setLastBackupTime] = useState<Date | null>(null);
 
   const [newTaskForm, setNewTaskForm] = useState({
     source: `CW${getWeekNumber(new Date())}`,
@@ -156,6 +163,7 @@ const App: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
+  // Sync Logic
   useEffect(() => {
     if (isSyncEnabled) {
       const unsubscribe = subscribeToData((data: any) => {
@@ -168,6 +176,21 @@ const App: React.FC = () => {
     }
   }, [isSyncEnabled]);
 
+  // Backup Logic
+  useEffect(() => {
+    if (!backupDirHandle || !appConfig.backupIntervalMinutes || appConfig.backupIntervalMinutes <= 0) return;
+
+    const intervalId = setInterval(async () => {
+      const success = await performBackup(backupDirHandle, { tasks, logs, observations, offDays, appConfig });
+      if (success) {
+        setLastBackupTime(new Date());
+        console.log("Auto-backup successful");
+      }
+    }, appConfig.backupIntervalMinutes * 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [backupDirHandle, appConfig.backupIntervalMinutes, tasks, logs, observations, offDays, appConfig]);
+
   const persistData = (newTasks: Task[], newLogs: DailyLog[], newObs: Observation[], newOffDays: string[]) => {
     setTasks(newTasks);
     setLogs(newLogs);
@@ -175,6 +198,15 @@ const App: React.FC = () => {
     setOffDays(newOffDays);
     localStorage.setItem('protrack_data', JSON.stringify({ tasks: newTasks, logs: newLogs, observations: newObs, offDays: newOffDays }));
     if (isSyncEnabled) saveDataToCloud({ tasks: newTasks, logs: newLogs, observations: newObs, offDays: newOffDays });
+  };
+
+  const handleSelectBackupFolder = async () => {
+    const handle = await selectBackupFolder();
+    if (handle) {
+      setBackupDirHandle(handle);
+      setAppConfig(prev => ({ ...prev, lastBackupPathName: handle.name }));
+      alert(`Backup folder set to: ${handle.name}\n\nNote: If you reload the page, you will need to re-select the folder due to browser security.`);
+    }
   };
 
   const suggestNextId = (projectId: string) => {
@@ -620,7 +652,23 @@ const App: React.FC = () => {
       case ViewMode.OBSERVATIONS:
         return <ObservationsLog observations={observations} onAddObservation={o => persistData(tasks, logs, [...observations, o], offDays)} onEditObservation={o => persistData(tasks, logs, observations.map(x => x.id === o.id ? o : x), offDays)} onDeleteObservation={id => persistData(tasks, logs, observations.filter(x => x.id !== id), offDays)} columns={appConfig.observationStatuses} itemColors={appConfig.itemColors} />;
       case ViewMode.SETTINGS:
-        return <Settings tasks={tasks} logs={logs} observations={observations} offDays={offDays} onImportData={(d) => persistData(d.tasks, d.logs, d.observations, d.offDays || [])} onSyncConfigUpdate={c => setIsSyncEnabled(!!c)} isSyncEnabled={isSyncEnabled} appConfig={appConfig} onUpdateConfig={handleUpdateAppConfig} onPurgeData={(newTasks, newLogs) => persistData(newTasks, newLogs, observations, offDays)} />;
+        return (
+          <Settings 
+            tasks={tasks} 
+            logs={logs} 
+            observations={observations} 
+            offDays={offDays} 
+            onImportData={(d) => persistData(d.tasks, d.logs, d.observations, d.offDays || [])} 
+            onSyncConfigUpdate={c => setIsSyncEnabled(!!c)} 
+            isSyncEnabled={isSyncEnabled} 
+            appConfig={appConfig} 
+            onUpdateConfig={handleUpdateAppConfig} 
+            onPurgeData={(newTasks, newLogs) => persistData(newTasks, newLogs, observations, offDays)}
+            onSelectBackupFolder={handleSelectBackupFolder}
+            backupDirectoryName={appConfig.lastBackupPathName || null}
+            lastBackupTime={lastBackupTime}
+          />
+        );
       case ViewMode.HELP:
         return <UserManual />;
       default:
@@ -653,7 +701,16 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         <div className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 z-10">
            <div className="relative max-w-md w-full"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="text" placeholder="Search tasks..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-lg text-sm outline-none" /></div>
-           <div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${isSyncEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}></div><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isSyncEnabled ? 'Cloud Synced' : 'Local Only'}</span></div>
+           <div className="flex items-center gap-2">
+              {backupDirHandle && (
+                <div className="hidden md:flex items-center gap-2 mr-2 bg-amber-50 px-2 py-1 rounded border border-amber-100" title={`Auto-Backup Active (${appConfig.backupIntervalMinutes}m)`}>
+                    <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
+                    <HardDrive size={12} className="text-amber-600"/>
+                    <span className="text-[9px] font-bold text-amber-700 uppercase tracking-widest">Backup Active</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2"><div className={`w-2 h-2 rounded-full ${isSyncEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}></div><span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isSyncEnabled ? 'Cloud Synced' : 'Local Only'}</span></div>
+           </div>
         </div>
         <div className="flex-1 overflow-auto p-6 bg-slate-50 custom-scrollbar">{renderContent()}</div>
 
