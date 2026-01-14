@@ -1,18 +1,23 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette } from 'lucide-react';
+import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, FolderOpen, Save } from 'lucide-react';
 import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status } from '../types';
 import { initFirebase } from '../services/firebaseService';
+import { saveManualBackup } from '../services/backupService';
 
 interface SettingsProps {
   tasks: Task[];
   logs: DailyLog[];
   observations: Observation[];
-  onImportData: (data: { tasks: Task[]; logs: DailyLog[]; observations: Observation[] }) => void;
+  offDays?: string[];
+  onImportData: (data: { tasks: Task[]; logs: DailyLog[]; observations: Observation[]; offDays?: string[] }) => void;
   onSyncConfigUpdate: (config: FirebaseConfig | null) => void;
   isSyncEnabled: boolean;
   appConfig: AppConfig;
   onUpdateConfig: (config: AppConfig) => void;
   onPurgeData: (tasks: Task[], logs: DailyLog[]) => void;
+  onSelectBackupFolder?: () => void;
+  backupDirectoryName?: string | null;
+  lastBackupTime?: Date | null;
 }
 
 const RESOURCE_LIMIT_BYTES = 1048576; // 1MB limit
@@ -161,10 +166,15 @@ const ResourceBar = ({ label, current, limit }: { label: string, current: number
     );
 };
 
-const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImportData, onSyncConfigUpdate, isSyncEnabled, appConfig, onUpdateConfig, onPurgeData }) => {
+const Settings: React.FC<SettingsProps> = ({ 
+    tasks, logs, observations, offDays = [], 
+    onImportData, onSyncConfigUpdate, isSyncEnabled, appConfig, onUpdateConfig, onPurgeData,
+    onSelectBackupFolder, backupDirectoryName, lastBackupTime
+}) => {
   const [geminiKey, setGeminiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [configJson, setConfigJson] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const savedKey = localStorage.getItem('protrack_gemini_key');
@@ -174,7 +184,7 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
   }, []);
 
   const storageStats = { 
-    total: getSizeInBytes({ tasks, logs, observations }),
+    total: getSizeInBytes({ tasks, logs, observations, offDays }),
     tasks: getSizeInBytes(tasks),
     logs: getSizeInBytes(logs),
     obs: getSizeInBytes(observations)
@@ -188,6 +198,27 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
         onPurgeData(activeTasks, activeLogs);
         alert("Resources freed.");
     }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const data = JSON.parse(event.target?.result as string);
+            if (data.tasks && data.logs) {
+                onImportData(data);
+                alert('Data imported successfully!');
+            } else {
+                alert('Invalid backup file format.');
+            }
+        } catch (err) {
+            alert('Failed to parse backup file.');
+        }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   return (
@@ -271,6 +302,42 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
           </div>
       </section>
 
+      {/* Automated Backups Section */}
+      <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b bg-blue-50 flex items-center gap-3">
+              <FolderOpen className="text-blue-600" />
+              <div>
+                  <h2 className="text-lg font-bold text-slate-800">Automated Backups</h2>
+                  <p className="text-xs text-slate-500">Save backups directly to your hard drive.</p>
+              </div>
+          </div>
+          <div className="p-6 space-y-4">
+              <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <div className="space-y-1">
+                      <h3 className="font-bold text-slate-700 text-sm">Backup Location</h3>
+                      <p className="text-xs text-slate-500 font-mono">{backupDirectoryName ? `Selected: ${backupDirectoryName}` : "No folder selected. Backups must be done manually."}</p>
+                      {lastBackupTime && <p className="text-[10px] text-emerald-600 font-bold">Last backup: {lastBackupTime.toLocaleString()}</p>}
+                  </div>
+                  {onSelectBackupFolder && (
+                      <button onClick={onSelectBackupFolder} className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors">
+                          {backupDirectoryName ? "Change Folder" : "Select Folder"}
+                      </button>
+                  )}
+              </div>
+              <div className="flex items-center gap-4">
+                  <span className="text-xs font-bold text-slate-500">Auto-Backup Frequency (Minutes):</span>
+                  <input 
+                    type="number" 
+                    min="0"
+                    value={appConfig.backupIntervalMinutes || 0}
+                    onChange={(e) => onUpdateConfig({...appConfig, backupIntervalMinutes: parseInt(e.target.value) || 0})}
+                    className="w-20 px-2 py-1 border border-slate-300 rounded text-xs"
+                  />
+                  <span className="text-[10px] text-slate-400">(Set to 0 to disable)</span>
+              </div>
+          </div>
+      </section>
+
       <section className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b bg-purple-50 flex items-center gap-3">
               <Key size={24} className="text-purple-600" />
@@ -308,11 +375,25 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
           </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-4">
-          <button onClick={() => { const data = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ tasks, logs, observations }, null, 2)); const link = document.createElement('a'); link.setAttribute("href", data); link.setAttribute("download", `protrack_backup_${new Date().toISOString().split('T')[0]}.json`); link.click(); }} className="flex items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 hover:bg-black transition-all group shadow-xl">
+      <div className="grid grid-cols-2 gap-4">
+          <button onClick={() => saveManualBackup({ tasks, logs, observations, offDays, appConfig })} className="flex items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 hover:bg-black transition-all group shadow-xl">
               <Download className="text-indigo-400 group-hover:text-white" />
-              <span className="text-sm font-bold uppercase tracking-widest">Download Full System Backup (JSON)</span>
+              <span className="text-sm font-bold uppercase tracking-widest">Backup Data (JSON)</span>
           </button>
+          
+          <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+             <div className="flex items-center justify-center gap-3 p-6 bg-white text-slate-700 rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50 transition-all shadow-sm">
+                <FolderOpen className="text-slate-400 group-hover:text-indigo-500" />
+                <span className="text-sm font-bold uppercase tracking-widest">Restore Backup</span>
+             </div>
+             <input 
+                type="file" 
+                ref={fileInputRef}
+                className="hidden" 
+                accept=".json" 
+                onChange={handleFileUpload}
+             />
+          </div>
       </div>
     </div>
   );
