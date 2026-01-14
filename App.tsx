@@ -43,9 +43,8 @@ import UserManual from './components/UserManual';
 
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
-import { selectBackupFolder, performBackup, getStoredDirectoryHandle } from './services/backupService';
 
-const BUILD_VERSION = "V2.3.6 (Restored Visuals)";
+const BUILD_VERSION = "V2.3.7 (Stable)";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -98,10 +97,6 @@ const App: React.FC = () => {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
-  // Backup State
-  const [backupHandle, setBackupHandle] = useState<any>(null);
-  const [lastBackupTime, setLastBackupTime] = useState<Date | null>(null);
-
   const [newTaskForm, setNewTaskForm] = useState({
     source: `CW${getWeekNumber(new Date())}`,
     projectId: '',
@@ -142,25 +137,8 @@ const App: React.FC = () => {
       } catch (e) { console.error("Firebase init failed", e); }
     }
 
-    // Init Backup Handle
-    getStoredDirectoryHandle().then(handle => {
-        if (handle) setBackupHandle(handle);
-    });
-
     return () => clearInterval(timer);
   }, []);
-
-  // Automated Backup Interval
-  useEffect(() => {
-    if (!backupHandle || !appConfig.backupIntervalMinutes || appConfig.backupIntervalMinutes <= 0) return;
-
-    const intervalId = setInterval(async () => {
-        const success = await performBackup(backupHandle, { tasks, logs, observations, offDays, appConfig });
-        if (success) setLastBackupTime(new Date());
-    }, appConfig.backupIntervalMinutes * 60 * 1000);
-
-    return () => clearInterval(intervalId);
-  }, [backupHandle, appConfig.backupIntervalMinutes, tasks, logs, observations, offDays, appConfig]);
 
   useEffect(() => {
     if (isSyncEnabled) {
@@ -181,16 +159,6 @@ const App: React.FC = () => {
     setOffDays(newOffDays);
     localStorage.setItem('protrack_data', JSON.stringify({ tasks: newTasks, logs: newLogs, observations: newObs, offDays: newOffDays }));
     if (isSyncEnabled) saveDataToCloud({ tasks: newTasks, logs: newLogs, observations: newObs, offDays: newOffDays });
-  };
-
-  const handleBackupFolderSelect = async () => {
-    const handle = await selectBackupFolder();
-    if (handle) {
-        setBackupHandle(handle);
-        // Perform immediate backup to confirm access
-        const success = await performBackup(handle, { tasks, logs, observations, offDays, appConfig });
-        if (success) setLastBackupTime(new Date());
-    }
   };
 
   const activeProjects = useMemo(() => {
@@ -281,8 +249,6 @@ const App: React.FC = () => {
 
     const newLogs = logs.map(l => {
       if (l.taskId === taskId) {
-        // Optimistic update of log if content matched previously. 
-        // Note: Realistically logs are separate entities, but we try to keep them in sync if they were created simultaneously.
         const originalTask = tasks.find(t => t.id === taskId);
         const originalUpdate = originalTask?.updates.find(u => u.id === updateId);
         if (l.content === originalUpdate?.content) {
@@ -382,9 +348,8 @@ const App: React.FC = () => {
   }, [tasks, searchQuery, activeTaskTab]);
 
   const getStatusColorMini = (s: string) => {
-      // Use config colors if available
       const customColor = appConfig.itemColors?.[s];
-      if (customColor) return `border-l-4`; // We will apply style inline
+      if (customColor) return `border-l-4`; 
       
       switch (s) {
         case Status.DONE: return 'bg-emerald-50 border-emerald-200 text-emerald-700';
@@ -600,9 +565,6 @@ const App: React.FC = () => {
             appConfig={appConfig} 
             onUpdateConfig={handleUpdateAppConfig} 
             onPurgeData={(newTasks: Task[], newLogs: DailyLog[]) => persistData(newTasks, newLogs, observations, offDays)} 
-            onSelectBackupFolder={handleBackupFolderSelect}
-            backupDirectoryName={backupHandle ? backupHandle.name : null}
-            lastBackupTime={lastBackupTime}
           />
         );
       case ViewMode.HELP:

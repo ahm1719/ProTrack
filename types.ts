@@ -41,7 +41,6 @@ export interface AppConfig {
   };
   updateHighlightOptions?: HighlightOption[];
   itemColors?: Record<string, string>; // { "Status Name": "#hexcode" }
-  backupIntervalMinutes?: number;
 }
 
 export interface TaskAttachment {
