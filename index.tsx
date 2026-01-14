@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-console.log("ProTrack AI App Mounting - Build V2.3.4");
+console.log("ProTrack AI App Mounting");
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
