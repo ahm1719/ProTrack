@@ -1,26 +1,4 @@
-import { AppConfig, DailyLog, Observation, Task } from "../types";
-
-// Type definitions for File System Access API
-interface FileSystemHandle {
-  kind: 'file' | 'directory';
-  name: string;
-  isSameEntry(other: FileSystemHandle): Promise<boolean>;
-  queryPermission(descriptor?: any): Promise<PermissionState>;
-  requestPermission(descriptor?: any): Promise<PermissionState>;
-}
-
-interface FileSystemDirectoryHandle extends FileSystemHandle {
-  getFileHandle(name: string, options?: { create?: boolean }): Promise<FileSystemFileHandle>;
-}
-
-interface FileSystemFileHandle extends FileSystemHandle {
-  createWritable(): Promise<FileSystemWritableFileStream>;
-}
-
-interface FileSystemWritableFileStream extends WritableStream {
-  write(data: any): Promise<void>;
-  close(): Promise<void>;
-}
+import { AppConfig, DailyLog, Observation, Task, FileSystemDirectoryHandle, FileSystemFileHandle } from "../types";
 
 declare global {
   interface Window {
@@ -79,7 +57,7 @@ export const getStoredDirectoryHandle = async (): Promise<FileSystemDirectoryHan
 };
 
 export const verifyPermission = async (handle: FileSystemDirectoryHandle, readWrite = true): Promise<boolean> => {
-  const options = readWrite ? { mode: 'readwrite' } : {};
+  const options = readWrite ? { mode: 'readwrite' as const } : {};
   // Check if permission was already granted
   if ((await handle.queryPermission(options)) === 'granted') {
     return true;

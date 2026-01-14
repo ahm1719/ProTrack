@@ -121,3 +121,25 @@ export enum ViewMode {
   SETTINGS = 'SETTINGS',
   HELP = 'HELP'
 }
+
+// --- File System Access API Types ---
+export interface FileSystemHandle {
+  kind: 'file' | 'directory';
+  name: string;
+  isSameEntry(other: FileSystemHandle): Promise<boolean>;
+  queryPermission(descriptor?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>;
+  requestPermission(descriptor?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>;
+}
+
+export interface FileSystemDirectoryHandle extends FileSystemHandle {
+  getFileHandle(name: string, options?: { create?: boolean }): Promise<FileSystemFileHandle>;
+}
+
+export interface FileSystemFileHandle extends FileSystemHandle {
+  createWritable(): Promise<FileSystemWritableFileStream>;
+}
+
+export interface FileSystemWritableFileStream extends WritableStream {
+  write(data: any): Promise<void>;
+  close(): Promise<void>;
+}

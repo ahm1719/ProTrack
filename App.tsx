@@ -32,7 +32,8 @@ import {
   ViewMode, 
   FirebaseConfig,
   TaskAttachment,
-  BackupSettings
+  BackupSettings,
+  FileSystemDirectoryHandle
 } from './types';
 
 import TaskCard from './components/TaskCard';
@@ -48,7 +49,7 @@ import { getStoredDirectoryHandle, performBackup, selectBackupFolder } from './s
 
 // Define Build Numbers separately
 const VISUAL_BUILD = "UI: V2.4.4";
-const LOGIC_BUILD = "Logic: V2.5.0";
+const LOGIC_BUILD = "Logic: V2.5.1";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
