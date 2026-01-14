@@ -17,7 +17,8 @@ import {
   Target,
   Layers,
   Calendar,
-  Briefcase
+  Briefcase,
+  Circle
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -48,8 +49,8 @@ import { generateWeeklySummary } from './services/geminiService';
 import { getStoredDirectoryHandle, performBackup, selectBackupFolder } from './services/backupService';
 
 // Define Build Numbers separately
-const VISUAL_BUILD = "UI: V2.5.0";
-const LOGIC_BUILD = "Logic: V2.5.1";
+const VISUAL_BUILD = "UI: V2.6.0";
+const LOGIC_BUILD = "Logic: V2.6.0";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -107,7 +108,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
-  const [activeTaskTab, setActiveTaskTab] = useState<'current' | 'completed'>('current');
+  const [activeTaskTab, setActiveTaskTab] = useState<'current' | 'future' | 'completed'>('current');
   
   const [currentTime, setCurrentTime] = useState(new Date());
   const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
@@ -471,9 +472,28 @@ const App: React.FC = () => {
   const filteredTasks = useMemo(() => {
     const q = searchQuery.toLowerCase();
     const base = tasks.filter(t => t.description.toLowerCase().includes(q) || t.displayId.toLowerCase().includes(q));
-    if (activeTaskTab === 'current') return base.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED);
+    
+    // Determine the end of the currently viewed week (Today + 6 days) to define "Future"
+    const lastVisibleDay = weekDays[weekDays.length - 1];
+
+    if (activeTaskTab === 'current') {
+        // Active = Not Done/Archived AND (No Date OR Date <= LastVisibleDay)
+        return base.filter(t => 
+            t.status !== Status.DONE && 
+            t.status !== Status.ARCHIVED && 
+            (!t.dueDate || t.dueDate <= lastVisibleDay)
+        );
+    } else if (activeTaskTab === 'future') {
+        // Future = Not Done/Archived AND (Date > LastVisibleDay)
+        return base.filter(t => 
+            t.status !== Status.DONE && 
+            t.status !== Status.ARCHIVED && 
+            (t.dueDate && t.dueDate > lastVisibleDay)
+        );
+    }
+    // Completed
     return base.filter(t => t.status === Status.DONE || t.status === Status.ARCHIVED);
-  }, [tasks, searchQuery, activeTaskTab]);
+  }, [tasks, searchQuery, activeTaskTab, weekDays]);
 
   const getStatusColorMini = (s: string) => {
       const customColor = appConfig.itemColors?.[s];
@@ -492,6 +512,13 @@ const App: React.FC = () => {
       const color = appConfig.itemColors?.[s];
       if (color) return { borderLeftColor: color, borderLeftWidth: '4px', backgroundColor: `${color}10` };
       return {};
+  };
+
+  const getPriorityColorDot = (p: string) => {
+      if (p === Priority.HIGH) return 'text-red-500';
+      if (p === Priority.MEDIUM) return 'text-amber-500';
+      if (p === Priority.LOW) return 'text-emerald-500';
+      return 'text-slate-300';
   };
 
   const renderContent = () => {
@@ -676,6 +703,8 @@ const App: React.FC = () => {
                                 const customStyle = highlightColor 
                                     ? { borderLeftColor: highlightColor, borderLeftWidth: '4px', backgroundColor: `${highlightColor}10` }
                                     : getCustomStyle(t.status);
+                                
+                                const isDoneOrArchived = t.status === Status.DONE || t.status === Status.ARCHIVED;
 
                                 return (
                                 <div 
@@ -685,11 +714,14 @@ const App: React.FC = () => {
                                   className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group ${highlightColor ? 'border-slate-200 text-slate-700' : getStatusColorMini(t.status)}`}
                                 >
                                     <div className="flex justify-between items-center mb-1">
-                                      <span className="font-mono font-bold">{t.displayId}</span>
+                                      <div className="flex items-center gap-1.5">
+                                        <Circle size={8} className={`fill-current ${getPriorityColorDot(t.priority)}`} />
+                                        <span className={`font-mono font-bold ${isDoneOrArchived ? 'line-through opacity-50' : ''}`}>{t.displayId}</span>
+                                      </div>
                                       {t.status === Status.DONE && <CheckCircle2 size={12} className="text-emerald-600" />}
                                       {t.status === Status.IN_PROGRESS && <Clock size={12} className="text-blue-600" />}
                                     </div>
-                                    <p className={`line-clamp-2 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>
+                                    <p className={`line-clamp-2 leading-tight ${isDoneOrArchived ? 'line-through opacity-60' : ''}`}>
                                         {latestUpdate ? (
                                             <span className="font-medium">{latestUpdate.content}</span>
                                         ) : (
@@ -714,9 +746,10 @@ const App: React.FC = () => {
                     <div className="bg-white p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
                         <div className="flex bg-slate-100 p-1 rounded-xl">
                             <button onClick={() => setActiveTaskTab('current')} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'current' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Active Tasks</button>
+                            <button onClick={() => setActiveTaskTab('future')} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'future' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Future Tasks</button>
                             <button onClick={() => setActiveTaskTab('completed')} className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${activeTaskTab === 'completed' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>Archive & Done</button>
                         </div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{filteredTasks.length} {activeTaskTab} ITEMS</span>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{filteredTasks.length} {activeTaskTab.replace('current', 'Active').replace('future', 'Future')} ITEMS</span>
                     </div>
                     <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
