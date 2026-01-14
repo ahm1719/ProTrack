@@ -44,7 +44,9 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.3.7 (Stable)";
+// Define Build Numbers separately
+const VISUAL_BUILD = "UI: V2.4.0";
+const LOGIC_BUILD = "Logic: V2.3.9";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -582,7 +584,12 @@ const App: React.FC = () => {
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">P</div>
               {isSidebarOpen && <span className="font-bold text-xl tracking-tight">ProTrack<span className="text-indigo-600">AI</span></span>}
            </div>
-           {isSidebarOpen && <span className="text-[10px] font-mono text-slate-400 font-bold uppercase tracking-widest">{BUILD_VERSION}</span>}
+           {isSidebarOpen && (
+               <div className="flex flex-col items-center text-[9px] font-mono text-slate-400 font-bold uppercase tracking-widest mt-1 space-y-0.5">
+                   <span>{VISUAL_BUILD}</span>
+                   <span>{LOGIC_BUILD}</span>
+               </div>
+           )}
         </div>
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
            {[
