@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Task, Status, Priority, TaskAttachment, HighlightOption } from '../types';
-import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight, Archive, X, Save, Paperclip, File, Download as DownloadIcon } from 'lucide-react';
+import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight, Archive, X, Save, Paperclip, File, Download as DownloadIcon, Tag } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
 interface TaskCardProps {
@@ -60,6 +60,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [editingField, setEditingField] = useState<string | null>(null);
   const [tempValue, setTempValue] = useState('');
 
+  const latestUpdate = useMemo(() => {
+    if (!task.updates || task.updates.length === 0) return null;
+    return [...task.updates].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+  }, [task.updates]);
+
   useEffect(() => {
     if (autoExpand) {
       setIsExpanded(true);
@@ -78,7 +83,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
   const getStatusColor = (s: string) => {
     const custom = itemColors?.[s];
-    if (custom) return `text-white`; // We'll apply bg color via style
+    if (custom) return `text-white`; 
     
     if (s === Status.DONE) return 'bg-emerald-500 text-white';
     if (s === Status.IN_PROGRESS) return 'bg-blue-500 text-white';
@@ -218,6 +223,12 @@ const TaskCard: React.FC<TaskCardProps> = ({
       if (e.key === 'Escape') {
           setEditingField(null);
       }
+  };
+
+  const getHighlightLabel = (color?: string) => {
+      if (!color || !updateHighlightOptions) return 'Update';
+      const option = updateHighlightOptions.find(o => o.color === color);
+      return option ? option.label : 'Update';
   };
 
   return (
@@ -367,6 +378,33 @@ const TaskCard: React.FC<TaskCardProps> = ({
                         )}
                     </div>
                 ))}
+            </div>
+        )}
+
+        {/* Latest Update Preview */}
+        {latestUpdate && (
+            <div 
+              className={`mt-3 mb-1 p-3 rounded-lg text-xs border relative group/update ${latestUpdate.highlightColor ? '' : 'bg-slate-50 border-slate-100'}`}
+              style={latestUpdate.highlightColor ? { 
+                  backgroundColor: `${latestUpdate.highlightColor}10`,
+                  borderColor: `${latestUpdate.highlightColor}40`
+              } : {}}
+            >
+               <div className="flex items-center justify-between mb-1.5 opacity-80">
+                  <span className="font-bold flex items-center gap-1.5 text-[10px] uppercase tracking-wider" 
+                        style={latestUpdate.highlightColor ? { color: latestUpdate.highlightColor } : { color: '#64748b' }}>
+                      {latestUpdate.highlightColor ? (
+                          <>
+                            <Tag size={10} className="fill-current" />
+                            {getHighlightLabel(latestUpdate.highlightColor)}
+                          </>
+                      ) : (
+                          <><Clock size={10} /> Latest Update</>
+                      )}
+                  </span>
+                  <span className="text-[9px] text-slate-400 font-medium">{new Date(latestUpdate.timestamp).toLocaleDateString()}</span>
+               </div>
+               <p className="text-slate-700 font-medium leading-relaxed line-clamp-3">{latestUpdate.content}</p>
             </div>
         )}
 

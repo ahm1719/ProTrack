@@ -45,7 +45,7 @@ import { subscribeToData, saveDataToCloud, initFirebase } from './services/fireb
 import { generateWeeklySummary } from './services/geminiService';
 
 // Define Build Numbers separately
-const VISUAL_BUILD = "UI: V2.4.2";
+const VISUAL_BUILD = "UI: V2.4.3";
 const LOGIC_BUILD = "Logic: V2.4.1";
 
 const DEFAULT_CONFIG: AppConfig = {
