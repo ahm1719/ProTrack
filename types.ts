@@ -78,6 +78,7 @@ export interface Task {
   updates: TaskUpdate[]; // Historical updates/comments
   createdAt: string;
   attachments?: TaskAttachment[]; // Global task attachments
+  order?: number; // For manual sorting in daily view
 }
 
 export interface DailyLog {

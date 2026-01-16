@@ -18,7 +18,9 @@ import {
   Layers,
   Calendar,
   Briefcase,
-  Circle
+  Circle,
+  GripVertical,
+  ArrowUpDown
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -49,8 +51,8 @@ import { generateWeeklySummary } from './services/geminiService';
 import { getStoredDirectoryHandle, performBackup, selectBackupFolder } from './services/backupService';
 
 // Define Build Numbers separately
-const VISUAL_BUILD = "UI: V2.9.0";
-const LOGIC_BUILD = "Logic: V2.9.0";
+const VISUAL_BUILD = "UI: V2.10.0";
+const LOGIC_BUILD = "Logic: V2.10.0";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -110,6 +112,9 @@ const App: React.FC = () => {
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
   const [activeTaskTab, setActiveTaskTab] = useState<'current' | 'future' | 'completed'>('current');
   
+  // Sorting Mode for Daily Tasks
+  const [taskSortMode, setTaskSortMode] = useState<'priority' | 'manual'>('priority');
+  
   const [currentTime, setCurrentTime] = useState(new Date());
   const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -139,7 +144,12 @@ const App: React.FC = () => {
     const savedConfig = localStorage.getItem('protrack_firebase_config');
     const localAppConfig = localStorage.getItem('protrack_app_config');
     const localBackupSettings = localStorage.getItem('protrack_backup_settings');
+    const savedSortMode = localStorage.getItem('protrack_sort_mode');
     
+    if (savedSortMode) {
+        setTaskSortMode(savedSortMode as 'priority' | 'manual');
+    }
+
     if (localAppConfig) {
       try {
         const parsed = JSON.parse(localAppConfig);
@@ -205,6 +215,11 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('protrack_backup_settings', JSON.stringify(backupSettings));
   }, [backupSettings]);
+
+  // Persist Sort Mode
+  useEffect(() => {
+      localStorage.setItem('protrack_sort_mode', taskSortMode);
+  }, [taskSortMode]);
 
   // Automated Backup Loop
   useEffect(() => {
@@ -323,7 +338,8 @@ const App: React.FC = () => {
       ...newTaskForm,
       id: uuidv4(),
       updates: [],
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      order: 0
     };
     persistData([...tasks, newTask], logs, observations, offDays);
     setHighlightedTaskId(newTask.id);
@@ -416,6 +432,64 @@ const App: React.FC = () => {
     if (confirm('Delete task?')) {
       persistData(tasks.filter(t => t.id !== id), logs, observations, offDays);
     }
+  };
+
+  // --- Drag and Drop Handlers for Manual Sort ---
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+      if (taskSortMode !== 'manual') return;
+      e.dataTransfer.setData('text/plain', taskId);
+      e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+      if (taskSortMode !== 'manual') return;
+      e.preventDefault(); // Necessary to allow dropping
+  };
+
+  const handleDrop = (e: React.DragEvent, targetTask: Task) => {
+      if (taskSortMode !== 'manual') return;
+      e.preventDefault();
+      const draggedId = e.dataTransfer.getData('text/plain');
+      if (!draggedId || draggedId === targetTask.id) return;
+
+      const draggedTask = tasks.find(t => t.id === draggedId);
+      if (!draggedTask) return;
+
+      // Only allow reordering within the same "Day bucket" (same due date)
+      // If dates differ, we could update the date, but let's stick to simple reordering for now.
+      if (draggedTask.dueDate !== targetTask.dueDate) return;
+
+      // Get all tasks for this specific day
+      const dayTasks = tasks.filter(t => t.dueDate === targetTask.dueDate);
+      
+      // Sort them currently (by order or ID) to get current positions
+      const sortedDayTasks = [...dayTasks].sort((a, b) => (a.order || 0) - (b.order || 0) || a.displayId.localeCompare(b.displayId));
+      
+      const fromIndex = sortedDayTasks.findIndex(t => t.id === draggedId);
+      const toIndex = sortedDayTasks.findIndex(t => t.id === targetTask.id);
+
+      if (fromIndex === -1 || toIndex === -1) return;
+
+      // Move item in array
+      const newOrder = [...sortedDayTasks];
+      const [movedItem] = newOrder.splice(fromIndex, 1);
+      newOrder.splice(toIndex, 0, movedItem);
+
+      // Assign new order values to all tasks in this day bucket
+      const updates = new Map<string, number>();
+      newOrder.forEach((t, index) => {
+          updates.set(t.id, index);
+      });
+
+      // Update global state
+      const updatedTasks = tasks.map(t => {
+          if (updates.has(t.id)) {
+              return { ...t, order: updates.get(t.id) };
+          }
+          return t;
+      });
+
+      persistData(updatedTasks, logs, observations, offDays);
   };
 
   // --- Handlers for DailyJournal editing ---
@@ -725,7 +799,23 @@ const App: React.FC = () => {
         return (
           <div className="h-full flex flex-col space-y-6 animate-fade-in">
              <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Daily Tasks</h1>
+                <div className="flex flex-col gap-1">
+                    <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Daily Tasks</h1>
+                    <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg w-fit">
+                        <button 
+                            onClick={() => setTaskSortMode('priority')} 
+                            className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all flex items-center gap-1.5 ${taskSortMode === 'priority' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            <Target size={12} /> Priority
+                        </button>
+                        <button 
+                            onClick={() => setTaskSortMode('manual')} 
+                            className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all flex items-center gap-1.5 ${taskSortMode === 'manual' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            <ArrowUpDown size={12} /> Manual
+                        </button>
+                    </div>
+                </div>
                 <button onClick={() => setShowNewTaskModal(true)} className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 font-bold">
                     <Plus size={20} /> New Task
                 </button>
@@ -734,13 +824,20 @@ const App: React.FC = () => {
              <div className="flex gap-4 overflow-x-auto pb-4 snap-x custom-scrollbar shrink-0 h-56">
                 {weekDays.map(d => {
                     const dailyTasks = weekTasks[d] || [];
-                    // Sort tasks: Priority (High to Low) -> Display ID
+                    // Sort tasks logic
                     const sortedDailyTasks = [...dailyTasks].sort((a, b) => {
-                        const pA = appConfig.taskPriorities.indexOf(a.priority);
-                        const pB = appConfig.taskPriorities.indexOf(b.priority);
-                        // Assumption: Priority list is typically [High, Medium, Low], so lower index = higher priority
-                        if (pA !== pB) return pA - pB;
-                        return a.displayId.localeCompare(b.displayId, undefined, { numeric: true, sensitivity: 'base' });
+                        if (taskSortMode === 'manual') {
+                            // If order is undefined, treat as 0 or large number? 
+                            // Treat as 0 so they appear at top or stick together.
+                            // If orders are equal, fallback to ID for stability
+                            return (a.order || 0) - (b.order || 0) || a.displayId.localeCompare(b.displayId);
+                        } else {
+                            // Priority (High to Low) -> Display ID
+                            const pA = appConfig.taskPriorities.indexOf(a.priority);
+                            const pB = appConfig.taskPriorities.indexOf(b.priority);
+                            if (pA !== pB) return pA - pB;
+                            return a.displayId.localeCompare(b.displayId, undefined, { numeric: true, sensitivity: 'base' });
+                        }
                     });
 
                     return (
@@ -768,13 +865,21 @@ const App: React.FC = () => {
                                     return (
                                     <div 
                                     key={t.id} 
+                                    draggable={taskSortMode === 'manual'}
+                                    onDragStart={(e) => handleDragStart(e, t.id)}
+                                    onDragOver={handleDragOver}
+                                    onDrop={(e) => handleDrop(e, t)}
                                     onClick={() => setHighlightedTaskId(t.id)} 
                                     style={customStyle}
-                                    className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all cursor-pointer group ${highlightColor ? 'border-slate-200 text-slate-700' : getStatusColorMini(t.status)}`}
+                                    className={`p-3 rounded-xl border text-xs shadow-sm hover:ring-2 hover:ring-indigo-300 transition-all group ${taskSortMode === 'manual' ? 'cursor-move' : 'cursor-pointer'} ${highlightColor ? 'border-slate-200 text-slate-700' : getStatusColorMini(t.status)}`}
                                     >
                                         <div className="flex justify-between items-center mb-1">
                                         <div className="flex items-center gap-1.5">
-                                            <Circle size={8} className={`fill-current ${getPriorityColorDot(t.priority)}`} />
+                                            {taskSortMode === 'manual' ? (
+                                                <GripVertical size={10} className="text-slate-400" />
+                                            ) : (
+                                                <Circle size={8} className={`fill-current ${getPriorityColorDot(t.priority)}`} />
+                                            )}
                                             <span className={`font-mono font-bold ${isDoneOrArchived ? 'line-through opacity-50' : ''}`}>{t.displayId}</span>
                                         </div>
                                         {t.status === Status.DONE && <CheckCircle2 size={12} className="text-emerald-600" />}
