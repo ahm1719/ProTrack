@@ -49,8 +49,8 @@ import { generateWeeklySummary } from './services/geminiService';
 import { getStoredDirectoryHandle, performBackup, selectBackupFolder } from './services/backupService';
 
 // Define Build Numbers separately
-const VISUAL_BUILD = "UI: V2.6.0";
-const LOGIC_BUILD = "Logic: V2.6.1";
+const VISUAL_BUILD = "UI: V2.7.0";
+const LOGIC_BUILD = "Logic: V2.7.0";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -450,6 +450,8 @@ const App: React.FC = () => {
   }, [tasks, appConfig.taskStatuses]);
 
   const overdueTasks = useMemo(() => tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate && t.dueDate < todayStr), [tasks, todayStr]);
+  const tasksDueToday = useMemo(() => tasks.filter(t => t.dueDate === todayStr && t.status !== Status.DONE && t.status !== Status.ARCHIVED), [tasks, todayStr]);
+  const highPriorityDueToday = useMemo(() => tasksDueToday.filter(t => t.priority === Priority.HIGH), [tasksDueToday]);
 
   const weekDays = useMemo(() => {
     const days = [];
@@ -647,6 +649,45 @@ const App: React.FC = () => {
                 </div>
              </div>
 
+             {/* Tasks Due Today Section */}
+             {tasksDueToday.length > 0 && (
+                <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-indigo-900 font-bold flex items-center gap-2 text-sm uppercase tracking-wider">
+                            <Calendar size={18} /> Tasks Due Today ({tasksDueToday.length})
+                        </h3>
+                        {highPriorityDueToday.length === 0 && (
+                            <span className="text-xs text-indigo-400 font-medium">No high priority items</span>
+                        )}
+                    </div>
+                    
+                    {highPriorityDueToday.length > 0 && (
+                        <div>
+                            <div className="mb-3 flex items-center gap-2 text-xs font-bold text-red-500 uppercase tracking-widest">
+                                <AlertTriangle size={12} /> High Priority
+                            </div>
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                {highPriorityDueToday.map(t => (
+                                    <TaskCard 
+                                        key={t.id} 
+                                        task={t} 
+                                        onUpdateStatus={updateTaskStatus} 
+                                        onEdit={() => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }} 
+                                        onDelete={deleteTask} 
+                                        onAddUpdate={addUpdateToTask} 
+                                        availableStatuses={appConfig.taskStatuses} 
+                                        availablePriorities={appConfig.taskPriorities} 
+                                        onUpdateTask={updateTaskFields} 
+                                        itemColors={appConfig.itemColors}
+                                        updateHighlightOptions={appConfig.updateHighlightOptions}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+             )}
+
              {overdueTasks.length > 0 && (
                 <div className="bg-red-50 border border-red-100 rounded-2xl p-6">
                     <h3 className="text-red-800 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
@@ -665,6 +706,7 @@ const App: React.FC = () => {
                                 availablePriorities={appConfig.taskPriorities} 
                                 onUpdateTask={updateTaskFields} 
                                 itemColors={appConfig.itemColors}
+                                updateHighlightOptions={appConfig.updateHighlightOptions}
                             />
                         ))}
                     </div>
@@ -722,11 +764,8 @@ const App: React.FC = () => {
                                       {t.status === Status.IN_PROGRESS && <Clock size={12} className="text-blue-600" />}
                                     </div>
                                     <p className={`line-clamp-2 leading-tight ${isDoneOrArchived ? 'line-through opacity-60' : ''}`}>
-                                        {latestUpdate ? (
-                                            <span className="font-medium">{latestUpdate.content}</span>
-                                        ) : (
-                                            t.description
-                                        )}
+                                        {/* Display Description instead of Latest Update content */}
+                                        {t.description}
                                     </p>
                                     {latestUpdate && (
                                         <div className="mt-1.5 flex items-center gap-1 opacity-50">
