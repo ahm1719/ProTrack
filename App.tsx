@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
   ListTodo, 
@@ -44,7 +44,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.0.9";
+const BUILD_VERSION = "V2.10.4";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -107,17 +107,21 @@ const App: React.FC = () => {
     const localAppConfig = localStorage.getItem('protrack_app_config');
     
     if (localAppConfig) {
-      const parsed = JSON.parse(localAppConfig);
-      setAppConfig({ ...DEFAULT_CONFIG, ...parsed });
+      try {
+        const parsed = JSON.parse(localAppConfig);
+        setAppConfig({ ...DEFAULT_CONFIG, ...parsed });
+      } catch (e) { console.error("Config parse error", e); }
     }
 
     const localData = localStorage.getItem('protrack_data');
     if (localData) {
-      const parsed = JSON.parse(localData);
-      setTasks(parsed.tasks || []);
-      setLogs(parsed.logs || []);
-      setObservations(parsed.observations || []);
-      setOffDays(parsed.offDays || []);
+      try {
+        const parsed = JSON.parse(localData);
+        setTasks(parsed.tasks || []);
+        setLogs(parsed.logs || []);
+        setObservations(parsed.observations || []);
+        setOffDays(parsed.offDays || []);
+      } catch (e) { console.error("Data parse error", e); }
     }
 
     if (savedConfig) {
@@ -169,7 +173,7 @@ const App: React.FC = () => {
     return projectId ? `${projectId}-${maxSeq + 1}` : '';
   };
 
-  const handleCreateTask = (e: React.FormEvent) => {
+  const handleCreateTask = (e: React.FormEvent | React.KeyboardEvent) => {
     e.preventDefault();
     setModalError(null);
 
@@ -274,6 +278,19 @@ const App: React.FC = () => {
   const deleteTask = (id: string) => {
     if (confirm('Delete task?')) {
       persistData(tasks.filter(t => t.id !== id), logs, observations, offDays);
+    }
+  };
+
+  // --- Handlers for DailyJournal editing (Fixed Build Error) ---
+  const handleEditLog = (logId: string, taskId: string, content: string, date: string) => {
+    const newLogs = logs.map(l => l.id === logId ? { ...l, taskId, content, date } : l);
+    persistData(tasks, newLogs, observations, offDays);
+  };
+
+  const handleDeleteLog = (logId: string) => {
+    if (confirm('Delete this journal entry?')) {
+      const newLogs = logs.filter(l => l.id !== logId);
+      persistData(tasks, newLogs, observations, offDays);
     }
   };
 
@@ -473,7 +490,18 @@ const App: React.FC = () => {
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden flex flex-col h-full">
                     <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                        <DailyJournal tasks={tasks} logs={logs} onAddLog={(l) => persistData(tasks, [...logs, { ...l, id: uuidv4() }], observations, offDays)} onUpdateTask={updateTaskFields} offDays={offDays} onToggleOffDay={(d) => persistData(tasks, logs, observations, offDays.includes(d) ? offDays.filter(x => x !== d) : [...offDays, d])} />
+                        {/* Passes new props to fix TS error */}
+                        <DailyJournal 
+                            tasks={tasks} 
+                            logs={logs} 
+                            onAddLog={(l) => persistData(tasks, [...logs, { ...l, id: uuidv4() }], observations, offDays)} 
+                            onUpdateTask={updateTaskFields} 
+                            offDays={offDays} 
+                            onToggleOffDay={(d) => persistData(tasks, logs, observations, offDays.includes(d) ? offDays.filter(x => x !== d) : [...offDays, d])}
+                            onEditLog={handleEditLog}
+                            onDeleteLog={handleDeleteLog}
+                            searchQuery={searchQuery}
+                        />
                     </div>
                 </div>
              </div>
@@ -599,7 +627,19 @@ const App: React.FC = () => {
                    </div>
                    <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Description</label>
-                      <textarea required value={newTaskForm.description} onChange={e => setNewTaskForm({...newTaskForm, description: e.target.value})} rows={3} placeholder="What needs to be done?" className="w-full px-3 py-2 text-sm bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 resize-none" />
+                      <textarea 
+                        required 
+                        value={newTaskForm.description} 
+                        onChange={e => setNewTaskForm({...newTaskForm, description: e.target.value})} 
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                handleCreateTask(e);
+                            }
+                        }}
+                        rows={3} 
+                        placeholder="What needs to be done? (Ctrl+Enter to create)" 
+                        className="w-full px-3 py-2 text-sm bg-slate-50 border rounded-xl outline-none focus:ring-2 focus:ring-indigo-100 resize-none" 
+                      />
                    </div>
                    <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
