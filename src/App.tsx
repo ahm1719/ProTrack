@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   LayoutDashboard, 
   ListTodo, 
@@ -51,7 +51,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V2.10.6";
+const BUILD_VERSION = "V2.10.7";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -106,7 +106,7 @@ const App: React.FC = () => {
     folderName: null
   });
   const [backupStatus, setBackupStatus] = useState<'idle' | 'running' | 'error' | 'permission_needed'>('idle');
-  const backupDirHandle = React.useRef<FileSystemDirectoryHandle | null>(null);
+  const backupDirHandle = useRef<FileSystemDirectoryHandle | null>(null);
 
   const [newTaskForm, setNewTaskForm] = useState({
     source: `CW${getWeekNumber(new Date())}`,

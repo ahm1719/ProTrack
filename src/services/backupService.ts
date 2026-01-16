@@ -63,8 +63,12 @@ export const verifyPermission = async (handle: FileSystemDirectoryHandle, readWr
     return true;
   }
   // Request permission. If the user grants permission, return true.
-  if ((await handle.requestPermission(options)) === 'granted') {
-    return true;
+  try {
+    if ((await handle.requestPermission(options)) === 'granted') {
+      return true;
+    }
+  } catch (e) {
+    console.error("Permission request failed", e);
   }
   // The user didn't grant permission, so return false.
   return false;
