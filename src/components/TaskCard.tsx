@@ -413,7 +413,6 @@ const TaskCard: React.FC<TaskCardProps> = ({
         </div>
       </div>
 
-      {/* History Section */}
       <div className="border-t border-slate-100">
         <button
           onClick={() => setIsExpanded(!isExpanded)}

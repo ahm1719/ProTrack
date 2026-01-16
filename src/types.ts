@@ -20,21 +20,35 @@ export enum ObservationStatus {
   ARCHIVED = 'Archived'
 }
 
+export interface HighlightOption {
+  id: string;
+  color: string;
+  label: string;
+}
+
 export interface AppConfig {
   taskStatuses: string[];
   taskPriorities: string[];
   observationStatuses: string[];
-  // Labels and Colors for the groups themselves
-  groupLabels?: {
+  groupLabels: {
     statuses: string;
     priorities: string;
     observations: string;
   };
-  groupColors?: {
+  groupColors: {
     statuses: string;
     priorities: string;
     observations: string;
   };
+  updateHighlightOptions?: HighlightOption[];
+  itemColors?: Record<string, string>; // { "Status Name": "#hexcode" }
+}
+
+export interface BackupSettings {
+  enabled: boolean;
+  intervalMinutes: number;
+  lastBackup: string | null; // ISO String
+  folderName: string | null;
 }
 
 export interface TaskAttachment {
@@ -49,6 +63,7 @@ export interface TaskUpdate {
   timestamp: string; // ISO String
   content: string;
   attachments?: TaskAttachment[];
+  highlightColor?: string; // For visual tagging of updates (e.g., Blockers)
 }
 
 export interface Task {
@@ -58,11 +73,12 @@ export interface Task {
   projectId: string; // New Project ID field
   description: string;
   dueDate: string; // YYYY-MM-DD
-  status: string; // Changed from enum to string to support dynamic
-  priority: string; // Changed from enum to string to support dynamic
+  status: string; 
+  priority: string; 
   updates: TaskUpdate[]; // Historical updates/comments
   createdAt: string;
   attachments?: TaskAttachment[]; // Global task attachments
+  order?: number; // For manual sorting in daily view
 }
 
 export interface DailyLog {
@@ -76,7 +92,7 @@ export interface Observation {
   id: string;
   timestamp: string;
   content: string;
-  status: string; // Changed from enum to string
+  status: string;
   images?: string[];
 }
 
@@ -84,6 +100,7 @@ export interface ChatMessage {
   id: string;
   role: 'user' | 'model';
   text: string;
+  image?: string; // Base64 data URL
   timestamp: number;
 }
 
@@ -105,4 +122,26 @@ export enum ViewMode {
   OBSERVATIONS = 'OBSERVATIONS',
   SETTINGS = 'SETTINGS',
   HELP = 'HELP'
+}
+
+// --- File System Access API Types ---
+export interface FileSystemHandle {
+  kind: 'file' | 'directory';
+  name: string;
+  isSameEntry(other: FileSystemHandle): Promise<boolean>;
+  queryPermission(descriptor?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>;
+  requestPermission(descriptor?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>;
+}
+
+export interface FileSystemDirectoryHandle extends FileSystemHandle {
+  getFileHandle(name: string, options?: { create?: boolean }): Promise<FileSystemFileHandle>;
+}
+
+export interface FileSystemFileHandle extends FileSystemHandle {
+  createWritable(): Promise<FileSystemWritableFileStream>;
+}
+
+export interface FileSystemWritableFileStream extends WritableStream {
+  write(data: any): Promise<void>;
+  close(): Promise<void>;
 }
