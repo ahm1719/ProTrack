@@ -203,7 +203,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   const handleFieldClick = (field: string, value: string) => {
-    if (isReadOnly || !onUpdateTask) return;
+    if (isReadOnly) {
+        if (onNavigate) onNavigate();
+        return;
+    }
+    if (!onUpdateTask) return;
     setEditingField(field);
     setTempValue(value);
   };
@@ -248,7 +252,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
              ) : (
                 <span 
                   onClick={() => handleFieldClick('source', task.source)}
-                  className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded cursor-pointer hover:bg-slate-200 hover:text-slate-700 transition-colors border border-transparent hover:border-slate-300"
+                  className={`font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded transition-colors border border-transparent ${!isReadOnly ? 'cursor-pointer hover:bg-slate-200 hover:text-slate-700 hover:border-slate-300' : 'cursor-pointer hover:bg-indigo-50 hover:text-indigo-600'}`}
                 >
                   {task.source}
                 </span>
@@ -266,7 +270,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
              ) : (
                 <span 
                   onClick={() => handleFieldClick('displayId', task.displayId)}
-                  className="font-mono text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded cursor-pointer hover:bg-indigo-100 transition-colors border border-transparent hover:border-indigo-200"
+                  className={`font-mono text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded transition-colors border border-transparent ${!isReadOnly ? 'cursor-pointer hover:bg-indigo-100 hover:border-indigo-200' : 'cursor-pointer hover:bg-indigo-100 hover:scale-105'}`}
                 >
                   {task.displayId}
                 </span>
@@ -289,7 +293,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
              ) : (
                 <span 
                   onClick={() => handleFieldClick('priority', task.priority)}
-                  className={`text-xs px-2 py-1 rounded-full border ${getPriorityColor(task.priority)} font-medium cursor-pointer hover:brightness-95 transition-all`}
+                  className={`text-xs px-2 py-1 rounded-full border ${getPriorityColor(task.priority)} font-medium transition-all ${!isReadOnly ? 'cursor-pointer hover:brightness-95' : 'cursor-pointer hover:opacity-80'}`}
                 >
                   {task.priority}
                 </span>
@@ -358,7 +362,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
         ) : (
             <h3 
               onClick={() => handleFieldClick('description', task.description)}
-              className={`text-lg font-semibold text-slate-800 mb-2 leading-tight whitespace-pre-wrap cursor-pointer hover:text-indigo-700 transition-colors border border-transparent hover:border-dashed hover:border-slate-300 rounded p-0.5 -m-0.5 ${isCompleted ? 'line-through text-slate-500' : ''}`}
+              className={`text-lg font-semibold text-slate-800 mb-2 leading-tight whitespace-pre-wrap transition-colors border border-transparent rounded p-0.5 -m-0.5 ${isCompleted ? 'line-through text-slate-500' : ''} ${!isReadOnly ? 'cursor-pointer hover:text-indigo-700 hover:border-dashed hover:border-slate-300' : 'cursor-pointer hover:text-indigo-600 hover:bg-indigo-50'}`}
             >
               {task.description}
             </h3>
@@ -428,7 +432,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
               ) : (
                 <span 
                     onClick={() => handleFieldClick('dueDate', task.dueDate)}
-                    className="cursor-pointer hover:text-indigo-600 hover:underline decoration-dashed decoration-indigo-300 underline-offset-2"
+                    className={`cursor-pointer ${!isReadOnly ? 'hover:text-indigo-600 hover:underline decoration-dashed decoration-indigo-300 underline-offset-2' : ''}`}
                 >
                     {task.dueDate ? formatDate(task.dueDate) : 'No Date'}
                 </span>

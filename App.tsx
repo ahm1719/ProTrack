@@ -49,8 +49,8 @@ import { generateWeeklySummary } from './services/geminiService';
 import { getStoredDirectoryHandle, performBackup, selectBackupFolder } from './services/backupService';
 
 // Define Build Numbers separately
-const VISUAL_BUILD = "UI: V2.7.0";
-const LOGIC_BUILD = "Logic: V2.7.0";
+const VISUAL_BUILD = "UI: V2.8.0";
+const LOGIC_BUILD = "Logic: V2.8.0";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -672,7 +672,7 @@ const App: React.FC = () => {
                                         key={t.id} 
                                         task={t} 
                                         onUpdateStatus={updateTaskStatus} 
-                                        onEdit={() => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }} 
+                                        onEdit={() => { /* Read Only Mode handles navigation */ }} 
                                         onDelete={deleteTask} 
                                         onAddUpdate={addUpdateToTask} 
                                         availableStatuses={appConfig.taskStatuses} 
@@ -680,6 +680,9 @@ const App: React.FC = () => {
                                         onUpdateTask={updateTaskFields} 
                                         itemColors={appConfig.itemColors}
                                         updateHighlightOptions={appConfig.updateHighlightOptions}
+                                        isReadOnly={true}
+                                        allowStatusChange={true}
+                                        onNavigate={() => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }}
                                     />
                                 ))}
                             </div>
@@ -699,7 +702,7 @@ const App: React.FC = () => {
                                 key={t.id} 
                                 task={t} 
                                 onUpdateStatus={updateTaskStatus} 
-                                onEdit={() => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }} 
+                                onEdit={() => { /* Read Only Mode handles navigation */ }} 
                                 onDelete={deleteTask} 
                                 onAddUpdate={addUpdateToTask} 
                                 availableStatuses={appConfig.taskStatuses} 
@@ -707,6 +710,9 @@ const App: React.FC = () => {
                                 onUpdateTask={updateTaskFields} 
                                 itemColors={appConfig.itemColors}
                                 updateHighlightOptions={appConfig.updateHighlightOptions}
+                                isReadOnly={true}
+                                allowStatusChange={true}
+                                onNavigate={() => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }}
                             />
                         ))}
                     </div>

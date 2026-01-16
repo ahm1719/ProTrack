@@ -157,17 +157,23 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                   <select 
                       value={status}
                       onChange={(e) => setStatus(e.target.value)}
-                      className="w-full md:w-48 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 cursor-pointer"
+                      className="w-full md:w-48 p-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50 cursor-pointer h-10"
                   >
                       {columns.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                   <div className="flex-1 flex gap-2">
                       <div className="relative flex-1">
-                        <input type="text" value={content} onChange={(e) => setContent(e.target.value)} onPaste={handlePaste} placeholder="Describe observation..." className="w-full p-2 pr-10 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900" />
-                        <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-indigo-600 p-1"><ImageIcon size={18} /></button>
+                        <textarea 
+                            value={content} 
+                            onChange={(e) => setContent(e.target.value)} 
+                            onPaste={handlePaste} 
+                            placeholder="Describe observation..." 
+                            className="w-full p-3 pr-10 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-slate-900 resize-none h-20 custom-scrollbar" 
+                        />
+                        <button type="button" onClick={() => fileInputRef.current?.click()} className="absolute right-2 bottom-2 text-slate-400 hover:text-indigo-600 p-1" title="Attach Image"><ImageIcon size={18} /></button>
                       </div>
                       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleFileSelect} />
-                      <button type="submit" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap">{editingId ? 'Save' : 'Add'}</button>
+                      <button type="submit" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap h-20">{editingId ? 'Save' : 'Add'}</button>
                   </div>
                 </div>
                 {images.length > 0 && (
@@ -211,7 +217,7 @@ const ObservationsLog: React.FC<ObservationsLogProps> = ({
                                         ))}
                                       </div>
                                     )}
-                                    <p className="text-sm text-slate-700 mb-2 leading-snug break-words">{obs.content}</p>
+                                    <p className="text-sm text-slate-700 mb-2 leading-snug break-words whitespace-pre-wrap">{obs.content}</p>
                                     <div className="flex items-center justify-between pt-2 border-t border-slate-50 mt-2">
                                         <span className="text-[10px] text-slate-400 font-mono">{new Date(obs.timestamp).toLocaleDateString()}</span>
                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
