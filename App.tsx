@@ -50,7 +50,7 @@ import { getStoredDirectoryHandle, performBackup, selectBackupFolder } from './s
 
 // Define Build Numbers separately
 const VISUAL_BUILD = "UI: V2.6.0";
-const LOGIC_BUILD = "Logic: V2.6.0";
+const LOGIC_BUILD = "Logic: V2.6.1";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -370,7 +370,7 @@ const App: React.FC = () => {
       if (t.id === taskId) {
         return {
           ...t,
-          updates: t.updates.map(u => u.id === updateId ? { ...u, content, timestamp: timestamp || u.timestamp, highlightColor: highlightColor || u.highlightColor } : u)
+          updates: t.updates.map(u => u.id === updateId ? { ...u, content, timestamp: timestamp || u.timestamp, highlightColor } : u)
         };
       }
       return t;
