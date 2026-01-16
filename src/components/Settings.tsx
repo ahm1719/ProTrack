@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette } from 'lucide-react';
+import { Download, HardDrive, List, Plus, X, Trash2, Edit2, Key, Eye, EyeOff, Cloud, AlertTriangle, Palette, FolderOpen } from 'lucide-react';
 import { Task, DailyLog, Observation, FirebaseConfig, AppConfig, Status } from '../types';
 import { initFirebase } from '../services/firebaseService';
 
@@ -165,6 +165,7 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
   const [geminiKey, setGeminiKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [configJson, setConfigJson] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const savedKey = localStorage.getItem('protrack_gemini_key');
@@ -188,6 +189,49 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
         onPurgeData(activeTasks, activeLogs);
         alert("Resources freed.");
     }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const data = JSON.parse(event.target?.result as string);
+            if (data.tasks || data.logs) {
+                // Support both legacy format (tasks, logs) and full backup (tasks, logs, observations)
+                onImportData({
+                    tasks: data.tasks || [],
+                    logs: data.logs || [],
+                    observations: data.observations || []
+                });
+                alert('Data imported successfully!');
+            } else {
+                alert('Invalid backup file format.');
+            }
+        } catch (err) {
+            alert('Failed to parse backup file.');
+        }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleDownloadBackup = () => {
+    const data = { tasks, logs, observations, appConfig };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    link.download = `ProTrack_Backup_${timestamp}.json`;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -308,11 +352,25 @@ const Settings: React.FC<SettingsProps> = ({ tasks, logs, observations, onImport
           </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-4">
-          <button onClick={() => { const data = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ tasks, logs, observations }, null, 2)); const link = document.createElement('a'); link.setAttribute("href", data); link.setAttribute("download", `protrack_backup_${new Date().toISOString().split('T')[0]}.json`); link.click(); }} className="flex items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 hover:bg-black transition-all group shadow-xl">
+      <div className="grid grid-cols-2 gap-4">
+          <button onClick={handleDownloadBackup} className="flex items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl border border-slate-800 hover:bg-black transition-all group shadow-xl">
               <Download className="text-indigo-400 group-hover:text-white" />
               <span className="text-sm font-bold uppercase tracking-widest">Download Full System Backup (JSON)</span>
           </button>
+          
+          <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+             <div className="flex items-center justify-center gap-3 p-6 bg-white text-slate-700 rounded-2xl border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50 transition-all shadow-sm">
+                <FolderOpen className="text-slate-400 group-hover:text-indigo-500" />
+                <span className="text-sm font-bold uppercase tracking-widest">Restore Backup</span>
+             </div>
+             <input 
+                type="file" 
+                ref={fileInputRef}
+                className="hidden" 
+                accept=".json" 
+                onChange={handleFileUpload}
+             />
+          </div>
       </div>
     </div>
   );

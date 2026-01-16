@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   LayoutDashboard, 
   ListTodo, 
@@ -30,8 +30,9 @@ import {
   Status, 
   ObservationStatus, 
   ViewMode, 
-  FirebaseConfig,
-  TaskAttachment
+  TaskAttachment,
+  BackupSettings,
+  FileSystemDirectoryHandle
 } from './types';
 
 import TaskCard from './components/TaskCard';
@@ -43,8 +44,14 @@ import UserManual from './components/UserManual';
 
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
+import { 
+  selectBackupFolder, 
+  performBackup, 
+  getStoredDirectoryHandle, 
+  verifyPermission 
+} from './services/backupService';
 
-const BUILD_VERSION = "V2.10.1";
+const BUILD_VERSION = "V2.10.6";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -91,6 +98,16 @@ const App: React.FC = () => {
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
+  // Backup State
+  const [backupSettings, setBackupSettings] = useState<BackupSettings>({
+    enabled: false,
+    intervalMinutes: 10,
+    lastBackup: null,
+    folderName: null
+  });
+  const [backupStatus, setBackupStatus] = useState<'idle' | 'running' | 'error' | 'permission_needed'>('idle');
+  const backupDirHandle = React.useRef<FileSystemDirectoryHandle | null>(null);
+
   const [newTaskForm, setNewTaskForm] = useState({
     source: `CW${getWeekNumber(new Date())}`,
     projectId: '',
@@ -130,6 +147,29 @@ const App: React.FC = () => {
         if (initFirebase(config)) setIsSyncEnabled(true);
       } catch (e) { console.error("Firebase init failed", e); }
     }
+
+    // Load Backup Settings
+    const initBackup = async () => {
+        const savedSettings = localStorage.getItem('protrack_backup_settings');
+        if (savedSettings) {
+            setBackupSettings(JSON.parse(savedSettings));
+        }
+        
+        try {
+            const handle = await getStoredDirectoryHandle();
+            if (handle) {
+                backupDirHandle.current = handle;
+                // Ensure folder name is synced if missing
+                if (!JSON.parse(savedSettings || '{}').folderName) {
+                    setBackupSettings(prev => ({ ...prev, folderName: handle.name }));
+                }
+            }
+        } catch (e) {
+            console.error("Failed to init backup handle", e);
+        }
+    };
+    initBackup();
+
     return () => clearInterval(timer);
   }, []);
 
@@ -144,6 +184,53 @@ const App: React.FC = () => {
       return () => { if (unsubscribe) unsubscribe(); };
     }
   }, [isSyncEnabled]);
+
+  // Persist backup settings
+  useEffect(() => {
+    localStorage.setItem('protrack_backup_settings', JSON.stringify(backupSettings));
+  }, [backupSettings]);
+
+  // Backup Interval Logic
+  useEffect(() => {
+    let intervalId: number;
+
+    const runBackup = async () => {
+        if (!backupSettings.enabled || !backupDirHandle.current) return;
+
+        setBackupStatus('running');
+        
+        const success = await performBackup(backupDirHandle.current, {
+            tasks, logs, observations, offDays, appConfig
+        });
+
+        if (success) {
+            setBackupStatus('idle');
+            setBackupSettings(prev => ({ ...prev, lastBackup: new Date().toISOString() }));
+        } else {
+            // Check if failure was due to permission
+            if (backupDirHandle.current) {
+                try {
+                    const perm = await verifyPermission(backupDirHandle.current, false);
+                    if (!perm) {
+                        setBackupStatus('permission_needed');
+                    } else {
+                        setBackupStatus('error');
+                    }
+                } catch(e) {
+                    setBackupStatus('error');
+                }
+            } else {
+                setBackupStatus('error');
+            }
+        }
+    };
+
+    if (backupSettings.enabled) {
+        intervalId = window.setInterval(runBackup, backupSettings.intervalMinutes * 60 * 1000);
+    }
+
+    return () => window.clearInterval(intervalId);
+  }, [backupSettings.enabled, backupSettings.intervalMinutes, tasks, logs, observations, offDays, appConfig]);
 
   const persistData = (newTasks: Task[], newLogs: DailyLog[], newObs: Observation[], newOffDays: string[]) => {
     setTasks(newTasks);
@@ -281,7 +368,6 @@ const App: React.FC = () => {
     }
   };
 
-  // --- Handlers for DailyJournal editing ---
   const handleEditLog = (logId: string, taskId: string, content: string, date: string) => {
     const newLogs = logs.map(l => l.id === logId ? { ...l, taskId, content, date } : l);
     persistData(tasks, newLogs, observations, offDays);
@@ -297,6 +383,27 @@ const App: React.FC = () => {
   const handleUpdateAppConfig = (newConfig: AppConfig) => {
     setAppConfig(newConfig);
     localStorage.setItem('protrack_app_config', JSON.stringify(newConfig));
+  };
+
+  // --- Backup Handlers ---
+  const handleSetupBackupFolder = async () => {
+    const handle = await selectBackupFolder();
+    if (handle) {
+      backupDirHandle.current = handle;
+      setBackupSettings(prev => ({
+        ...prev,
+        folderName: handle.name,
+        enabled: true 
+      }));
+      setBackupStatus('idle');
+    }
+  };
+
+  const handleVerifyBackupPermission = async () => {
+    if (backupDirHandle.current) {
+      const hasPerm = await verifyPermission(backupDirHandle.current, true);
+      if (hasPerm) setBackupStatus('idle');
+    }
   };
 
   const todayStr = new Date().toLocaleDateString('en-CA');
@@ -514,13 +621,20 @@ const App: React.FC = () => {
           <Settings 
             tasks={tasks} 
             logs={logs} 
-            observations={observations} 
-            onImportData={(d) => persistData(d.tasks, d.logs, d.observations, offDays)} 
+            observations={observations}
+            offDays={offDays} 
+            onImportData={(d) => persistData(d.tasks, d.logs, d.observations, d.offDays || [])} 
             onSyncConfigUpdate={c => setIsSyncEnabled(!!c)} 
             isSyncEnabled={isSyncEnabled} 
             appConfig={appConfig} 
             onUpdateConfig={handleUpdateAppConfig} 
             onPurgeData={(newTasks: Task[], newLogs: DailyLog[]) => persistData(newTasks, newLogs, observations, offDays)} 
+            // Backup Props Wiring
+            backupSettings={backupSettings}
+            setBackupSettings={setBackupSettings}
+            onSetupBackupFolder={handleSetupBackupFolder}
+            backupStatus={backupStatus}
+            onVerifyBackupPermission={handleVerifyBackupPermission}
           />
         );
       case ViewMode.HELP:
