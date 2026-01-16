@@ -44,7 +44,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.10.2";
+const BUILD_VERSION = "V2.10.3";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -490,7 +490,6 @@ const App: React.FC = () => {
                 </div>
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-lg overflow-hidden flex flex-col h-full">
                     <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                        {/* Passes new props to fix TS error */}
                         <DailyJournal 
                             tasks={tasks} 
                             logs={logs} 
