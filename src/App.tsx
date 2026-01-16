@@ -44,7 +44,7 @@ import UserManual from './components/UserManual';
 import { subscribeToData, saveDataToCloud, initFirebase } from './services/firebaseService';
 import { generateWeeklySummary } from './services/geminiService';
 
-const BUILD_VERSION = "V2.10.3";
+const BUILD_VERSION = "V2.10.1";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -281,7 +281,7 @@ const App: React.FC = () => {
     }
   };
 
-  // --- Handlers for DailyJournal editing (Fixed Build Error) ---
+  // --- Handlers for DailyJournal editing ---
   const handleEditLog = (logId: string, taskId: string, content: string, date: string) => {
     const newLogs = logs.map(l => l.id === logId ? { ...l, taskId, content, date } : l);
     persistData(tasks, newLogs, observations, offDays);

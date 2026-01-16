@@ -1,8 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
+import App from './src/App';
 
-console.log("ProTrack AI App Mounting");
+console.log("ProTrack AI App Mounting - Redirecting to SRC");
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
