@@ -51,7 +51,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V2.10.8";
+const BUILD_VERSION = "V2.10.9";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -571,9 +571,12 @@ const App: React.FC = () => {
                                     {t.updates.length > 0 && (() => {
                                       const latest = [...t.updates].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
                                       return (
-                                          <div className="mt-1.5 flex items-start gap-1.5 text-[10px] text-slate-500 bg-slate-50/50 p-1.5 rounded border border-slate-100/50">
-                                              <div className={`w-1.5 h-1.5 rounded-full mt-0.5 shrink-0 ${latest.highlightColor ? '' : 'bg-indigo-400'}`} style={{ backgroundColor: latest.highlightColor }} />
-                                              <span className="truncate">{latest.content}</span>
+                                          <div className="mt-2 flex items-center gap-1.5 bg-white/60 p-1.5 rounded border border-black/5">
+                                              <div 
+                                                  className="w-1.5 h-1.5 rounded-full shrink-0" 
+                                                  style={{ backgroundColor: latest.highlightColor || '#cbd5e1' }} 
+                                              />
+                                              <span className="text-[10px] text-slate-600 truncate font-medium flex-1">{latest.content}</span>
                                           </div>
                                       );
                                     })()}
