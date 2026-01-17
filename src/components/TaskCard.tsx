@@ -595,14 +595,16 @@ const TaskCard: React.FC<TaskCardProps> = ({
                                 ))}
                             </div>
                         </div>
-                        <input
-                          type="text"
+                        <textarea
                           value={editUpdateContent}
                           onChange={(e) => setEditUpdateContent(e.target.value)}
-                          className="flex-grow p-2 text-xs border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                          className="flex-grow p-2 text-xs border border-indigo-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white resize-y min-h-[60px]"
                           autoFocus
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') saveEditedUpdate(update.id);
+                            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                                e.preventDefault();
+                                saveEditedUpdate(update.id);
+                            }
                             if (e.key === 'Escape') cancelEditingUpdate();
                           }}
                         />
@@ -624,7 +626,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                         <div className="relative">
                             <div className="p-2 bg-white rounded-lg border border-slate-200 text-slate-700 shadow-sm text-xs group-hover:pr-14 flex items-start gap-2">
                                 <div className="mt-1 w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: update.highlightColor || '#cbd5e1' }} title="Tag Color"/>
-                                <span className="flex-1">{update.content}</span>
+                                <span className="flex-1 whitespace-pre-wrap">{update.content}</span>
                             </div>
                             {!isReadOnly && (
                             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
