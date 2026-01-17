@@ -18,6 +18,7 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Dev repo
         uses: actions/checkout@v4
@@ -33,12 +34,20 @@ jobs:
           token: ${{ secrets.PROTRACKV2_TOKEN }}
           persist-credentials: false
 
+      - name: Ensure rsync is installed
+        run: sudo apt-get update && sudo apt-get install -y rsync
+
       - name: Replace production repo contents with Dev contents
         run: |
-          shopt -s dotglob
-          rm -rf target/*
-          cp -R ./* target/
-          rm -rf target/target || true
+          # Remove everything in target except the .git folder
+          find target -mindepth 1 -maxdepth 1 ! -name ".git" -exec rm -rf {} +
+
+          # Copy Dev -> target, excluding folders we must not copy
+          rsync -a --delete \
+            --exclude 'target' \
+            --exclude '.git' \
+            --exclude '.github' \
+            ./ target/
 
       - name: Commit and push to Pro_TrackV2
         working-directory: target
