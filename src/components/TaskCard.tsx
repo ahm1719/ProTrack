@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Task, Status, Priority, TaskAttachment } from '../types';
 import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight, Archive, X, Save, Paperclip, File, Download as DownloadIcon } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
@@ -62,6 +62,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
       }, 300);
     }
   }, [autoExpand]);
+
+  const latestUpdate = useMemo(() => {
+    if (!task.updates || task.updates.length === 0) return null;
+    return [...task.updates].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+  }, [task.updates]);
 
   const getPriorityColor = (p: string) => {
     if (p === Priority.HIGH) return 'bg-red-100 text-red-800 border-red-200';
@@ -355,6 +360,24 @@ const TaskCard: React.FC<TaskCardProps> = ({
                         )}
                     </div>
                 ))}
+            </div>
+        )}
+
+        {/* Latest Update Preview */}
+        {latestUpdate && (
+            <div className="mt-3 bg-slate-50/60 rounded-lg p-3 text-xs text-slate-600 border border-slate-100 hover:border-indigo-100 transition-colors group/preview">
+                <div className="flex items-center gap-2 mb-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full shadow-sm" style={{ backgroundColor: latestUpdate.highlightColor || '#6366f1' }} />
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex-1 group-hover/preview:text-indigo-400 transition-colors">
+                        Latest Update
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                        {formatDate(latestUpdate.timestamp)}
+                    </span>
+                </div>
+                <p className="line-clamp-2 leading-relaxed pl-3.5 border-l-2 border-slate-200 ml-0.5 group-hover/preview:border-indigo-200 transition-colors">
+                    {latestUpdate.content}
+                </p>
             </div>
         )}
 
