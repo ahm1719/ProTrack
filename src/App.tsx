@@ -53,7 +53,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V2.11.1";
+const BUILD_VERSION = "V2.12.0";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -338,17 +338,22 @@ const App: React.FC = () => {
   const addUpdateToTask = (id: string, content: string, attachments?: TaskAttachment[], highlightColor?: string) => {
     const timestamp = new Date().toISOString();
     const updateId = uuidv4();
-    const updated = tasks.map(t => t.id === id ? { ...t, updates: [...t.updates, { id: updateId, timestamp, content, attachments, highlightColor }] } : t);
+    // Move attachments to Task level, do not keep in update
+    const updated = tasks.map(t => t.id === id ? { 
+        ...t, 
+        attachments: attachments ? [...(t.attachments || []), ...attachments] : t.attachments,
+        updates: [...t.updates, { id: updateId, timestamp, content, highlightColor }] // No attachments here
+    } : t);
     const newLog: DailyLog = { id: uuidv4(), date: new Date().toLocaleDateString('en-CA'), taskId: id, content };
     persistData(updated, [...logs, newLog], observations, offDays);
   };
 
-  const handleEditUpdate = (taskId: string, updateId: string, content: string, timestamp?: string) => {
+  const handleEditUpdate = (taskId: string, updateId: string, content: string, timestamp?: string, highlightColor?: string) => {
     const newTasks = tasks.map(t => {
       if (t.id === taskId) {
         return {
           ...t,
-          updates: t.updates.map(u => u.id === updateId ? { ...u, content, timestamp: timestamp || u.timestamp } : u)
+          updates: t.updates.map(u => u.id === updateId ? { ...u, content, timestamp: timestamp || u.timestamp, highlightColor } : u)
         };
       }
       return t;
@@ -447,6 +452,13 @@ const App: React.FC = () => {
   }, [tasks, appConfig.taskStatuses]);
 
   const overdueTasks = useMemo(() => tasks.filter(t => t.status !== Status.DONE && t.status !== Status.ARCHIVED && t.dueDate && t.dueDate < todayStr), [tasks, todayStr]);
+
+  const highPriorityDueToday = useMemo(() => tasks.filter(t => 
+    t.status !== Status.DONE && 
+    t.status !== Status.ARCHIVED && 
+    t.priority === Priority.HIGH && 
+    t.dueDate === todayStr
+  ), [tasks, todayStr]);
 
   const weekDays = useMemo(() => {
     const days = [];
@@ -589,6 +601,18 @@ const App: React.FC = () => {
                 </div>
              </div>
 
+             {/* Tasks Due Today Section */}
+             {highPriorityDueToday.length > 0 && (
+                <div className="bg-amber-50 border border-amber-100 rounded-2xl p-6">
+                    <h3 className="text-amber-800 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
+                        <AlertTriangle size={18} /> High Priority Due Today ({highPriorityDueToday.length})
+                    </h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        {highPriorityDueToday.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }} onDelete={deleteTask} onAddUpdate={addUpdateToTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} updateTags={appConfig.updateHighlightOptions} />)}
+                    </div>
+                </div>
+             )}
+
              {overdueTasks.length > 0 && (
                 <div className="bg-red-50 border border-red-100 rounded-2xl p-6">
                     <h3 className="text-red-800 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
@@ -633,8 +657,15 @@ const App: React.FC = () => {
                                     >
                                         <div className="flex justify-between items-center mb-1">
                                           <span className={`font-mono font-bold ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>{t.displayId}</span>
-                                          {t.status === Status.DONE && <CheckCircle2 size={12} className="text-emerald-600" />}
-                                          {t.status === Status.IN_PROGRESS && <Clock size={12} className="text-blue-600" />}
+                                          <div className="flex items-center gap-1">
+                                              {/* Priority Visual */}
+                                              <div 
+                                                className={`w-2 h-2 rounded-full ${t.priority === Priority.HIGH ? 'bg-red-500' : t.priority === Priority.MEDIUM ? 'bg-amber-400' : 'bg-emerald-400'}`} 
+                                                title={`Priority: ${t.priority}`} 
+                                              />
+                                              {t.status === Status.DONE && <CheckCircle2 size={12} className="text-emerald-600" />}
+                                              {t.status === Status.IN_PROGRESS && <Clock size={12} className="text-blue-600" />}
+                                          </div>
                                         </div>
                                         <p className={`line-clamp-2 leading-tight ${(t.status === Status.DONE || t.status === Status.ARCHIVED) ? 'line-through opacity-60' : ''}`}>{t.description}</p>
                                         
@@ -772,11 +803,26 @@ const App: React.FC = () => {
         <div className="h-16 bg-white border-b flex items-center justify-between px-6 shrink-0 z-10">
            <div className="relative max-w-md w-full">
               <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input type="text" placeholder="Search tasks, logs, projects..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-slate-50 border-none rounded-lg text-sm outline-none" />
+              <input type="text" placeholder="Search tasks, logs, projects..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-10 py-2 bg-slate-50 border-none rounded-lg text-sm outline-none" />
+              {searchQuery && (
+                  <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                      <X size={14} />
+                  </button>
+              )}
            </div>
-           <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${isSyncEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isSyncEnabled ? 'Cloud Synced' : 'Local Only'}</span>
+           <div className="flex items-center gap-4">
+              <div className="text-right hidden sm:block">
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      {backupSettings.enabled ? 'Auto-Backup ON' : 'Auto-Backup OFF'}
+                  </div>
+                  <div className="text-[9px] text-slate-300 font-mono">
+                      Last: {backupSettings.lastBackup ? new Date(backupSettings.lastBackup).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', hour12: true}) : 'Never'}
+                  </div>
+              </div>
+              <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${isSyncEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isSyncEnabled ? 'Cloud Synced' : 'Local Only'}</span>
+              </div>
            </div>
         </div>
         <div className="flex-1 overflow-auto p-6 bg-slate-50 custom-scrollbar">

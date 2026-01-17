@@ -9,7 +9,7 @@ interface TaskCardProps {
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
   onAddUpdate: (id: string, content: string, attachments?: TaskAttachment[], highlightColor?: string) => void;
-  onEditUpdate?: (taskId: string, updateId: string, newContent: string, newTimestamp?: string) => void;
+  onEditUpdate?: (taskId: string, updateId: string, newContent: string, newTimestamp?: string, highlightColor?: string) => void;
   onDeleteUpdate?: (taskId: string, updateId: string) => void;
   allowDelete?: boolean;
   isReadOnly?: boolean;
@@ -55,6 +55,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [editingUpdateId, setEditingUpdateId] = useState<string | null>(null);
   const [editUpdateContent, setEditUpdateContent] = useState('');
   const [editUpdateDate, setEditUpdateDate] = useState('');
+  const [editUpdateColor, setEditUpdateColor] = useState<string | undefined>(undefined);
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [tempValue, setTempValue] = useState('');
@@ -174,10 +175,11 @@ const TaskCard: React.FC<TaskCardProps> = ({
     }
   };
 
-  const startEditingUpdate = (update: { id: string, content: string, timestamp: string }) => {
+  const startEditingUpdate = (update: { id: string, content: string, timestamp: string, highlightColor?: string }) => {
     if (isReadOnly) return;
     setEditingUpdateId(update.id);
     setEditUpdateContent(update.content);
+    setEditUpdateColor(update.highlightColor);
     
     const d = new Date(update.timestamp);
     const year = d.getFullYear();
@@ -190,6 +192,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
     setEditingUpdateId(null);
     setEditUpdateContent('');
     setEditUpdateDate('');
+    setEditUpdateColor(undefined);
   };
 
   const saveEditedUpdate = (updateId: string) => {
@@ -199,7 +202,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
          newTimestamp = new Date(`${editUpdateDate}T12:00:00`).toISOString();
       }
 
-      onEditUpdate(task.id, updateId, editUpdateContent.trim(), newTimestamp);
+      onEditUpdate(task.id, updateId, editUpdateContent.trim(), newTimestamp, editUpdateColor);
       setEditingUpdateId(null);
     }
   };
@@ -575,6 +578,23 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   <div className="flex-grow">
                     {editingUpdateId === update.id ? (
                       <div className="flex gap-2 items-center">
+                        <div className="relative group/edit-color">
+                            <button type="button" className="p-1.5 hover:bg-slate-100 rounded">
+                                <div className="w-3 h-3 rounded-full border border-slate-200" style={{ backgroundColor: editUpdateColor || '#cbd5e1' }} />
+                            </button>
+                            <div className="absolute bottom-full left-0 mb-1 p-1 bg-white rounded shadow-lg border border-slate-200 hidden group-hover/edit-color:flex flex-col gap-1 z-10 w-32 max-h-48 overflow-y-auto custom-scrollbar">
+                                <button type="button" onClick={() => setEditUpdateColor(undefined)} className="flex items-center gap-2 p-1 hover:bg-slate-50 rounded text-xs w-full text-left">
+                                    <div className="w-3 h-3 rounded-full border border-slate-200 bg-slate-100 shrink-0" />
+                                    <span className="text-slate-500">None</span>
+                                </button>
+                                {updateTags && updateTags.length > 0 && updateTags.map(tag => (
+                                    <button key={tag.id} type="button" onClick={() => setEditUpdateColor(tag.color)} className="flex items-center gap-2 p-1 hover:bg-slate-50 rounded text-xs w-full text-left">
+                                        <div className="w-3 h-3 rounded-full border border-slate-200 shrink-0" style={{backgroundColor: tag.color}} />
+                                        <span className="truncate">{tag.label}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                         <input
                           type="text"
                           value={editUpdateContent}
