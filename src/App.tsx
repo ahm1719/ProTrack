@@ -51,7 +51,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V2.10.10";
+const BUILD_VERSION = "V2.10.11";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -308,10 +308,10 @@ const App: React.FC = () => {
     persistData(updated, logs, observations, offDays);
   };
 
-  const addUpdateToTask = (id: string, content: string, attachments?: TaskAttachment[]) => {
+  const addUpdateToTask = (id: string, content: string, attachments?: TaskAttachment[], highlightColor?: string) => {
     const timestamp = new Date().toISOString();
     const updateId = uuidv4();
-    const updated = tasks.map(t => t.id === id ? { ...t, updates: [...t.updates, { id: updateId, timestamp, content, attachments }] } : t);
+    const updated = tasks.map(t => t.id === id ? { ...t, updates: [...t.updates, { id: updateId, timestamp, content, attachments, highlightColor }] } : t);
     const newLog: DailyLog = { id: uuidv4(), date: new Date().toLocaleDateString('en-CA'), taskId: id, content };
     persistData(updated, [...logs, newLog], observations, offDays);
   };
