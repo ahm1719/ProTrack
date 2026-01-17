@@ -53,7 +53,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V2.12.0";
+const BUILD_VERSION = "V2.12.1";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -348,12 +348,17 @@ const App: React.FC = () => {
     persistData(updated, [...logs, newLog], observations, offDays);
   };
 
-  const handleEditUpdate = (taskId: string, updateId: string, content: string, timestamp?: string, highlightColor?: string) => {
+  const handleEditUpdate = (taskId: string, updateId: string, content: string, timestamp?: string, highlightColor?: string | null) => {
     const newTasks = tasks.map(t => {
       if (t.id === taskId) {
         return {
           ...t,
-          updates: t.updates.map(u => u.id === updateId ? { ...u, content, timestamp: timestamp || u.timestamp, highlightColor } : u)
+          updates: t.updates.map(u => u.id === updateId ? { 
+              ...u, 
+              content, 
+              timestamp: timestamp || u.timestamp, 
+              highlightColor: highlightColor === null ? undefined : highlightColor 
+          } : u)
         };
       }
       return t;

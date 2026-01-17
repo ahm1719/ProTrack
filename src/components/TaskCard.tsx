@@ -9,7 +9,7 @@ interface TaskCardProps {
   onEdit: (task: Task) => void;
   onDelete: (id: string) => void;
   onAddUpdate: (id: string, content: string, attachments?: TaskAttachment[], highlightColor?: string) => void;
-  onEditUpdate?: (taskId: string, updateId: string, newContent: string, newTimestamp?: string, highlightColor?: string) => void;
+  onEditUpdate?: (taskId: string, updateId: string, newContent: string, newTimestamp?: string, highlightColor?: string | null) => void;
   onDeleteUpdate?: (taskId: string, updateId: string) => void;
   allowDelete?: boolean;
   isReadOnly?: boolean;
@@ -55,7 +55,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
   const [editingUpdateId, setEditingUpdateId] = useState<string | null>(null);
   const [editUpdateContent, setEditUpdateContent] = useState('');
   const [editUpdateDate, setEditUpdateDate] = useState('');
-  const [editUpdateColor, setEditUpdateColor] = useState<string | undefined>(undefined);
+  const [editUpdateColor, setEditUpdateColor] = useState<string | null>(null);
 
   const [editingField, setEditingField] = useState<string | null>(null);
   const [tempValue, setTempValue] = useState('');
@@ -179,7 +179,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
     if (isReadOnly) return;
     setEditingUpdateId(update.id);
     setEditUpdateContent(update.content);
-    setEditUpdateColor(update.highlightColor);
+    // Explicitly set to null if undefined to ensure controlled state consistency
+    setEditUpdateColor(update.highlightColor || null);
     
     const d = new Date(update.timestamp);
     const year = d.getFullYear();
@@ -192,7 +193,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
     setEditingUpdateId(null);
     setEditUpdateContent('');
     setEditUpdateDate('');
-    setEditUpdateColor(undefined);
+    setEditUpdateColor(null);
   };
 
   const saveEditedUpdate = (updateId: string) => {
@@ -583,7 +584,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                                 <div className="w-3 h-3 rounded-full border border-slate-200" style={{ backgroundColor: editUpdateColor || '#cbd5e1' }} />
                             </button>
                             <div className="absolute bottom-full left-0 mb-1 p-1 bg-white rounded shadow-lg border border-slate-200 hidden group-hover/edit-color:flex flex-col gap-1 z-10 w-32 max-h-48 overflow-y-auto custom-scrollbar">
-                                <button type="button" onClick={() => setEditUpdateColor(undefined)} className="flex items-center gap-2 p-1 hover:bg-slate-50 rounded text-xs w-full text-left">
+                                <button type="button" onClick={() => setEditUpdateColor(null)} className="flex items-center gap-2 p-1 hover:bg-slate-50 rounded text-xs w-full text-left">
                                     <div className="w-3 h-3 rounded-full border border-slate-200 bg-slate-100 shrink-0" />
                                     <span className="text-slate-500">None</span>
                                 </button>
