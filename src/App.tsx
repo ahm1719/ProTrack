@@ -53,7 +53,7 @@ import {
   verifyPermission 
 } from './services/backupService';
 
-const BUILD_VERSION = "V2.11.0";
+const BUILD_VERSION = "V2.11.1";
 
 const DEFAULT_CONFIG: AppConfig = {
   taskStatuses: Object.values(Status),
@@ -68,7 +68,16 @@ const DEFAULT_CONFIG: AppConfig = {
     statuses: "#6366f1",
     priorities: "#f59e0b",
     observations: "#8b5cf6"
-  }
+  },
+  updateHighlightOptions: [
+    { id: 'neutral', color: '#94a3b8', label: 'Neutral' },
+    { id: 'high', color: '#ef4444', label: 'High Priority' },
+    { id: 'warning', color: '#f59e0b', label: 'Warning' },
+    { id: 'update', color: '#3b82f6', label: 'Update' },
+    { id: 'success', color: '#10b981', label: 'Success' },
+    { id: 'note', color: '#8b5cf6', label: 'Note' },
+  ],
+  itemColors: {}
 };
 
 const getWeekNumber = (d: Date): number => {
@@ -138,7 +147,13 @@ const App: React.FC = () => {
     if (localAppConfig) {
       try {
         const parsed = JSON.parse(localAppConfig);
-        setAppConfig({ ...DEFAULT_CONFIG, ...parsed });
+        // Merge with default to ensure new config properties exist
+        setAppConfig({ 
+            ...DEFAULT_CONFIG, 
+            ...parsed,
+            // Ensure updateHighlightOptions exists if loading from old config
+            updateHighlightOptions: parsed.updateHighlightOptions || DEFAULT_CONFIG.updateHighlightOptions 
+        });
       } catch (e) { console.error("Config parse error", e); }
     }
 
@@ -516,7 +531,7 @@ const App: React.FC = () => {
                         </div>
                         <div>
                              <h1 className="text-3xl font-bold flex items-baseline gap-2">
-                                {currentTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                                {currentTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
                                 <span className="text-indigo-200 font-mono text-lg">CW {getWeekNumber(currentTime)}</span>
                              </h1>
                              <p className="text-indigo-100 opacity-80 text-sm">{currentTime.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</p>
@@ -580,7 +595,7 @@ const App: React.FC = () => {
                         <AlertTriangle size={18} /> Overdue Items ({overdueTasks.length})
                     </h3>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                        {overdueTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }} onDelete={deleteTask} onAddUpdate={addUpdateToTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} />)}
+                        {overdueTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => { setHighlightedTaskId(t.id); setView(ViewMode.TASKS); }} onDelete={deleteTask} onAddUpdate={addUpdateToTask} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} updateTags={appConfig.updateHighlightOptions} />)}
                     </div>
                 </div>
              )}
@@ -653,7 +668,7 @@ const App: React.FC = () => {
                     </div>
                     <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {filteredTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => setHighlightedTaskId(t.id)} onDelete={deleteTask} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} autoExpand={t.id === highlightedTaskId} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} isDailyView={true} />)}
+                            {filteredTasks.map(t => <TaskCard key={t.id} task={t} onUpdateStatus={updateTaskStatus} onEdit={() => setHighlightedTaskId(t.id)} onDelete={deleteTask} onAddUpdate={addUpdateToTask} onEditUpdate={handleEditUpdate} onDeleteUpdate={handleDeleteUpdate} autoExpand={t.id === highlightedTaskId} availableStatuses={appConfig.taskStatuses} availablePriorities={appConfig.taskPriorities} onUpdateTask={updateTaskFields} isDailyView={true} updateTags={appConfig.updateHighlightOptions} />)}
                         </div>
                         {filteredTasks.length === 0 && (
                             <div className="flex flex-col items-center justify-center py-20 text-slate-300 opacity-50">

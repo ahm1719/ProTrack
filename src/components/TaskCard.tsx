@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Task, Status, Priority, TaskAttachment } from '../types';
+import { Task, Status, Priority, TaskAttachment, HighlightOption } from '../types';
 import { Clock, Calendar, ChevronDown, ChevronUp, Edit2, CheckCircle2, AlertCircle, FolderGit2, Trash2, Hourglass, ArrowRight, Archive, X, Save, Paperclip, File, Download as DownloadIcon } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -20,16 +20,8 @@ interface TaskCardProps {
   availableStatuses?: string[];
   availablePriorities?: string[];
   isDailyView?: boolean;
+  updateTags?: HighlightOption[];
 }
-
-const COLORS = [
-    { value: '#94a3b8', label: 'Neutral' }, // Slate 400
-    { value: '#ef4444', label: 'High Priority' }, // Red 500
-    { value: '#f59e0b', label: 'Warning' }, // Amber 500
-    { value: '#3b82f6', label: 'Update' }, // Blue 500
-    { value: '#10b981', label: 'Success' }, // Emerald 500
-    { value: '#8b5cf6', label: 'Note' }, // Violet 500
-];
 
 const TaskCard: React.FC<TaskCardProps> = ({ 
   task, 
@@ -47,12 +39,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
   autoExpand = false,
   availableStatuses = Object.values(Status),
   availablePriorities = Object.values(Priority),
-  isDailyView = false
+  isDailyView = false,
+  updateTags = []
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [newUpdate, setNewUpdate] = useState('');
   const [pendingAttachments, setPendingAttachments] = useState<TaskAttachment[]>([]);
-  const [newUpdateColor, setNewUpdateColor] = useState<string>('#94a3b8');
+  const [newUpdateColor, setNewUpdateColor] = useState<string>(updateTags[0]?.color || '#94a3b8');
   const [showColorPicker, setShowColorPicker] = useState(false);
 
   const cardRef = useRef<HTMLDivElement>(null);
@@ -74,6 +67,13 @@ const TaskCard: React.FC<TaskCardProps> = ({
       }, 300);
     }
   }, [autoExpand]);
+
+  // Ensure selected color is valid if tags change, fallback to neutral/gray
+  useEffect(() => {
+      if (updateTags.length > 0 && !updateTags.find(t => t.color === newUpdateColor)) {
+          setNewUpdateColor(updateTags[0]?.color || '#94a3b8');
+      }
+  }, [updateTags]);
 
   const latestUpdate = useMemo(() => {
     if (!task.updates || task.updates.length === 0) return null;
@@ -169,7 +169,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
       onAddUpdate(task.id, newUpdate, pendingAttachments.length > 0 ? pendingAttachments : undefined, newUpdateColor);
       setNewUpdate('');
       setPendingAttachments([]);
-      setNewUpdateColor('#94a3b8');
+      // Keep selected color for subsequent updates
       setShowColorPicker(false);
     }
   };
@@ -493,17 +493,20 @@ const TaskCard: React.FC<TaskCardProps> = ({
                                 <div className="w-4 h-4 rounded-full border border-slate-200" style={{ backgroundColor: newUpdateColor }} />
                             </button>
                             {showColorPicker && (
-                                <div className="absolute bottom-full right-0 mb-2 p-2 bg-white rounded-xl shadow-lg border border-slate-200 flex gap-1 z-10">
-                                    {COLORS.map((c) => (
+                                <div className="absolute bottom-full right-0 mb-2 p-2 bg-white rounded-xl shadow-lg border border-slate-200 flex flex-col gap-1 z-10 w-32 max-h-48 overflow-y-auto custom-scrollbar">
+                                    {updateTags.length > 0 ? updateTags.map((c) => (
                                         <button
-                                            key={c.value}
+                                            key={c.id}
                                             type="button"
-                                            onClick={() => { setNewUpdateColor(c.value); setShowColorPicker(false); }}
-                                            className="w-6 h-6 rounded-full border border-slate-100 hover:scale-110 transition-transform shadow-sm"
-                                            style={{ backgroundColor: c.value }}
-                                            title={c.label}
-                                        />
-                                    ))}
+                                            onClick={() => { setNewUpdateColor(c.color); setShowColorPicker(false); }}
+                                            className="flex items-center gap-2 p-1 hover:bg-slate-50 rounded text-xs w-full text-left"
+                                        >
+                                            <div className="w-3 h-3 rounded-full border border-slate-200 shrink-0" style={{ backgroundColor: c.color }} />
+                                            <span className="truncate text-slate-600 font-medium">{c.label}</span>
+                                        </button>
+                                    )) : (
+                                        <span className="text-[10px] text-slate-400 p-2">No tags defined</span>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -598,10 +601,10 @@ const TaskCard: React.FC<TaskCardProps> = ({
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        <div className="relative flex gap-2">
-                            <div className="mt-2 w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: update.highlightColor || '#cbd5e1' }} />
-                            <div className="flex-1 p-2 bg-white rounded-lg border border-slate-200 text-slate-700 shadow-sm text-xs group-hover:pr-14">
-                            {update.content}
+                        <div className="relative">
+                            <div className="p-2 bg-white rounded-lg border border-slate-200 text-slate-700 shadow-sm text-xs group-hover:pr-14 flex items-start gap-2">
+                                <div className="mt-1 w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: update.highlightColor || '#cbd5e1' }} title="Tag Color"/>
+                                <span className="flex-1">{update.content}</span>
                             </div>
                             {!isReadOnly && (
                             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -626,7 +629,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                         </div>
                         
                         {update.attachments && update.attachments.length > 0 && (
-                            <div className="flex flex-wrap gap-2 ml-4">
+                            <div className="flex flex-wrap gap-2">
                                 {update.attachments.map(att => (
                                     <button 
                                         key={att.id}
